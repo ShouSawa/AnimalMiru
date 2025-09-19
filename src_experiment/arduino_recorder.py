@@ -26,7 +26,7 @@ if not available_ports:
     exit(1)
 
 # 各Arduinoのシリアルポート名を指定
-target_ports = ['COM3', 'COM4', 'COM5', 'COM6']
+target_ports = ['COM5', 'COM6', 'COM7', 'COM8']
 ports = [port for port in target_ports if port in available_ports]
 
 if not ports:
@@ -101,13 +101,6 @@ def read_from_arduino(idx, ser):
                 print(f"致命的エラー: {port_name} で連続してエラーが発生しています")
                 break
 
-# 各Arduinoごとにスレッドを立ててデータを受信
-threads = []
-for i, ser in enumerate(serials):
-    t = threading.Thread(target=read_from_arduino, args=(i, ser))
-    t.daemon = True
-    t.start()
-    threads.append(t)
 
 # ファイル名の入力を促す
 base_filename = input("出力CSVファイルの基本名を入力してください（拡張子なし）: ")
@@ -119,6 +112,14 @@ os.makedirs(output_dir, exist_ok=True)  # フォルダが存在しない場合�
 
 filename = os.path.join(output_dir, f"{base_filename}_{current_time}.csv")
 print(f"出力ファイル名: {filename}")
+
+# 各Arduinoごとにスレッドを立ててデータを受信
+threads = []
+for i, ser in enumerate(serials):
+    t = threading.Thread(target=read_from_arduino, args=(i, ser))
+    t.daemon = True
+    t.start()
+    threads.append(t)
 
 # 初期接続確認のための待機時間
 print("初期データ受信を確認中... (5秒待機)")
