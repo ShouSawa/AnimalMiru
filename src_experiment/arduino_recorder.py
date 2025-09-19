@@ -188,7 +188,7 @@ with open(filename, 'w', newline='') as f:
                     print(f"エラー: 累積エラー数が多すぎます（合計: {total_errors}）")
                     print("データ受信に問題がある可能性があります。")
             
-            time.sleep(0.5)  # 0.5秒ごとに記録
+            time.sleep(0.1)  # 0.1秒ごとに記録
 
     # Ctrl+Cでプログラム終了
     except KeyboardInterrupt:
