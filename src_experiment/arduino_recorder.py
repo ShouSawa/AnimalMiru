@@ -58,9 +58,10 @@ last_data_time = {}  # {circuit_no: last_received_time}
 
 def parse_arduino_data(line):
     """Arduinoからのデータを解析する関数
-    例: 'circuit No.1 348 , 1.7399805[V]' -> (1, 348, 1.7399805)
+    実際の形式: 'circuit No.1 :  348 , 1.7399805[V]' -> (1, 348, 1.7399805)
     """
-    pattern = r'circuit No\.(\d+)\s+(\d+)\s*,\s*([\d.]+)\[V\]'
+    # 正しいパターン：コロンとスペースを考慮
+    pattern = r'circuit No\.(\d+)\s*:\s*(\d+)\s*,\s*([\d.]+)\[V\]'
     match = re.match(pattern, line)
     if match:
         circuit_no = int(match.group(1))
@@ -124,6 +125,7 @@ for i, ser in enumerate(serials):
 # 初期接続確認のための待機時間
 print("初期データ受信を確認中... (5秒待機)")
 time.sleep(5)
+print("実験データ記録中...")
 
 # 各回路からデータが受信されているかチェック
 expected_circuits = list(range(1, 13))  # 1-12の回路
