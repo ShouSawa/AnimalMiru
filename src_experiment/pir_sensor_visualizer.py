@@ -71,7 +71,7 @@ class PIRSensorVisualizer:
     if background_img is not None:
       # メインの軸を作成（背景用）
       main_ax = fig.add_subplot(111)
-      main_ax.imshow(background_img, extent=[0, 12, 0, 12], aspect='auto', alpha=0.3)
+      main_ax.imshow(background_img, extent=[0, 12, 0, 12], aspect='auto', alpha=0.5)
       main_ax.set_xlim(0, 12)
       main_ax.set_ylim(0, 12)
       main_ax.axis('off')
@@ -92,28 +92,123 @@ class PIRSensorVisualizer:
       
       # タイトルのみ設定（軸ラベルは削除）
       ax.set_title(f'Sensor {sensor_num}', fontsize=12, fontweight='bold', bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
-      ax.grid(True, alpha=0.3)
+      
+      # グリッド線を横軸・縦軸両方に表示
+      ax.grid(True, alpha=0.4, linestyle='-', linewidth=0.5)
+      ax.set_axisbelow(True)  # グリッド線をデータの下に表示
       
       # 背景を半透明の白に設定
       ax.set_facecolor((1, 1, 1, 0.8))
       
-      # X軸とY軸のラベルは全て削除（軸の目盛りは残す）
-      if adjusted_row > 1:
-        ax.set_xticklabels([])
+      # Y軸の範囲を0-5Vに固定（全グラフで統一）
+      ax.set_ylim(0, 5)
+      
+      # Y軸の目盛りを1Vごとに設定
+      ax.set_yticks([0, 1, 2, 3, 4, 5])
+      
+      # X軸の数値のみを非表示にし、Y軸の数値は表示
+      ax.set_xticklabels([])  # X軸の数値を非表示
+      # Y軸の数値は表示する（ax.set_yticklabels([])を削除）
+    
+    # 目盛り間隔の情報を右上に追加
+    self.add_scale_info(fig, df)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.93, bottom=0.08)
     return fig
   
-
+  def add_scale_info(self, fig, df):
+    """
+    目盛り間隔の情報を図の右上に追加する
+    """
+    # データの時間範囲を計算
+    time_range = df['datetime'].max() - df['datetime'].min()
+    total_seconds = time_range.total_seconds()
+    
+    # 電圧の範囲を計算（全センサーの平均）
+    voltage_cols = [f'voltage_no{i}' for i in range(1, 13)]
+    all_voltages = df[voltage_cols].values.flatten()
+    voltage_min = np.nanmin(all_voltages)
+    voltage_max = np.nanmax(all_voltages)
+    voltage_range = voltage_max - voltage_min
+    
+    # 情報テキストを作成
+    info_text = f"""Scale Information:
+Time Range: {total_seconds:.1f} seconds
+Y-axis: Fixed 0-5V (all graphs)
+Actual Data Range: {voltage_min:.3f}V - {voltage_max:.3f}V
+Data Points: {len(df)}"""
+    
+    # 右上に情報を配置
+    fig.text(0.98, 0.98, info_text, 
+             fontsize=10, 
+             verticalalignment='top', 
+             horizontalalignment='right',
+             bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9, edgecolor="black"),
+             transform=fig.transFigure)
   
+  def get_csv_file_path(self):
+    """
+    ユーザーからCSVファイルパスを取得する
+    """
+    print("\n=== CSVファイル選択 ===")
+    
+    # デフォルトのデータフォルダを表示
+    default_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "experiment_data", "csv_data")
+    
+    if os.path.exists(default_data_dir):
+      print(f"\n利用可能なCSVファイル（{default_data_dir}）:")
+      csv_files = [f for f in os.listdir(default_data_dir) if f.endswith('.csv')]
+      if csv_files:
+        for i, file in enumerate(csv_files, 1):
+          print(f"  {i}. {file}")
+        print(f"  {len(csv_files) + 1}. その他のファイルパスを手動入力")
+        
+        while True:
+          try:
+            choice = input(f"\n選択してください (1-{len(csv_files) + 1}): ").strip()
+            if choice.isdigit():
+              choice_num = int(choice)
+              if 1 <= choice_num <= len(csv_files):
+                selected_file = csv_files[choice_num - 1]
+                csv_file_path = os.path.join(default_data_dir, selected_file)
+                print(f"選択されたファイル: {csv_file_path}")
+                return csv_file_path
+              elif choice_num == len(csv_files) + 1:
+                break
+            print(f"1から{len(csv_files) + 1}の数字を入力してください。")
+          except KeyboardInterrupt:
+            print("\n操作がキャンセルされました。")
+            exit()
+    
+    # 手動でファイルパスを入力
+    while True:
+      try:
+        csv_file_path = input("\nCSVファイルのフルパスを入力してください: ").strip()
+        
+        # パスが引用符で囲まれている場合は除去
+        if csv_file_path.startswith('"') and csv_file_path.endswith('"'):
+          csv_file_path = csv_file_path[1:-1]
+        elif csv_file_path.startswith("'") and csv_file_path.endswith("'"):
+          csv_file_path = csv_file_path[1:-1]
+        
+        # ファイルの存在確認
+        if os.path.exists(csv_file_path) and csv_file_path.endswith('.csv'):
+          print(f"ファイルが確認されました: {csv_file_path}")
+          return csv_file_path
+        else:
+          print("ファイルが見つからないか、CSVファイルではありません。正しいパスを入力してください。")
+      
+      except KeyboardInterrupt:
+        print("\n操作がキャンセルされました。")
+        exit()
+
   def quick_visualization(self, csv_file_path=None):
     """
     クイック可視化実行
     """
-    filename = "change-0.1-test-in-lab-horizontal-walk_20250919_174223.csv"
     if csv_file_path is None:
-      csv_file_path = os.path.join(r"c:\Users\shota\Local_Documents\AnimalMiru\experiment_data\csv_data", filename)
+      csv_file_path = self.get_csv_file_path()
     
     print("=== PIR Sensor Quick Visualization ===")
     df = self.load_and_process_data(csv_file_path)
@@ -128,7 +223,19 @@ class PIRSensorVisualizer:
     layout_fig = self.create_sensor_layout_plot(df, "PIR Sensor Data - Physical Layout")
     layout_name = "physical"
     
-    # 画像を表示
+    # 画像を最大化された状態で表示
+    mng = layout_fig.canvas.manager
+    try:
+      mng.window.wm_state('zoomed')  # Windows用
+    except:
+      try:
+        mng.window.showMaximized()  # Qt backend用
+      except:
+        try:
+          mng.resize(*mng.window.maxsize())  # その他のbackend用
+        except:
+          pass  # 最大化に失敗した場合は通常表示
+    
     plt.show()
     
     # 表示後に保存確認
@@ -169,8 +276,9 @@ def main():
   print("=" * 50)
   print("PIR Sensor Data Quick Visualization")
   print("=" * 50)
+  print("PIRセンサーデータを可視化するCSVファイルを選択してください。")
   
-  # デフォルトファイルでクイック可視化を実行
+  # ユーザーからファイルを選択してクイック可視化を実行
   visualizer.quick_visualization()
 
 
