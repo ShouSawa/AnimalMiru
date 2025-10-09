@@ -125,6 +125,12 @@ class PIRSensorVisualizer:
     time_range = df['datetime'].max() - df['datetime'].min()
     total_seconds = time_range.total_seconds()
     
+    # 時間軸の目盛り間隔を計算
+    # matplotlibが自動的に設定する目盛りの概算間隔を計算
+    data_points = len(df)
+    typical_grid_intervals = 10  # 一般的なグラフの目盛り数
+    time_per_tick = total_seconds / typical_grid_intervals
+    
     # 電圧の範囲を計算（全センサーの平均）
     voltage_cols = [f'voltage_no{i}' for i in range(1, 13)]
     all_voltages = df[voltage_cols].values.flatten()
@@ -135,17 +141,18 @@ class PIRSensorVisualizer:
     # 情報テキストを作成
     info_text = f"""Scale Information:
 Time Range: {total_seconds:.1f} seconds
-Y-axis: Fixed 0-5V (all graphs)
+X-axis Grid: ~{time_per_tick:.1f} sec/interval
+Y-axis: Fixed 0-5V (1V intervals)
 Actual Data Range: {voltage_min:.3f}V - {voltage_max:.3f}V
 Data Points: {len(df)}"""
     
     # 右上に情報を配置
     fig.text(0.98, 0.98, info_text, 
-             fontsize=10, 
-             verticalalignment='top', 
-             horizontalalignment='right',
-             bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9, edgecolor="black"),
-             transform=fig.transFigure)
+            fontsize=10, 
+            verticalalignment='top', 
+            horizontalalignment='right',
+            bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9, edgecolor="black"),
+            transform=fig.transFigure)
   
   def get_csv_file_path(self):
     """
