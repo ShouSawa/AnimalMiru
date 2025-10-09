@@ -108,7 +108,7 @@ base_filename = input("出力CSVファイルの基本名を入力してくださ
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # 保存先フォルダのパスを設定
-output_dir = "../experiment_data/S1_first_experiment/"
+output_dir = "../experiment_data/csv_data/"
 os.makedirs(output_dir, exist_ok=True)  # フォルダが存在しない場合は作成
 
 filename = os.path.join(output_dir, f"{base_filename}_{current_time}.csv")

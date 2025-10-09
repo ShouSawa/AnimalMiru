@@ -12,6 +12,7 @@ import numpy as np
 import os
 from datetime import datetime
 from matplotlib.patches import Rectangle
+from matplotlib.ticker import FuncFormatter
 from PIL import Image
 
 # フォント設定
@@ -50,7 +51,7 @@ class PIRSensorVisualizer:
       print(f"エラー: ファイルの読み込みに失敗しました - {e}")
       return None
   
-  def create_sensor_layout_plot(self, df, title="PIRセンサーデータ可視化"):
+  def create_sensor_layout_plot(self, df, title="PIRセンサーデータ可視化", csv_filename=""):
     """
     提供された配置情報に従ってセンサーデータをプロットする
     背景にデータビジュアル画像を配置
@@ -65,7 +66,13 @@ class PIRSensorVisualizer:
     
     # 出力画像の大きさ
     fig = plt.figure(figsize=(24, 24))
-    fig.suptitle(title, fontsize=20, fontweight='bold')
+    
+    # タイトルとファイル名を表示
+    main_title = title
+    if csv_filename:
+      main_title = f"{title}\n{csv_filename}"
+    
+    fig.suptitle(main_title, fontsize=20, fontweight='bold')
     
     # 背景画像がある場合は全体の背景として設定
     if background_img is not None:
@@ -87,8 +94,12 @@ class PIRSensorVisualizer:
       time_data = df['datetime']
       voltage_data = df[voltage_col]
       
+      # 開始時点からの経過秒数を計算
+      start_time = df['datetime'].iloc[0]
+      seconds_data = (time_data - start_time).dt.total_seconds()
+      
       # プロット
-      ax.plot(time_data, voltage_data, linewidth=1.5, color=f'C{sensor_num-1}', alpha=0.9)
+      ax.plot(seconds_data, voltage_data, linewidth=1.5, color=f'C{sensor_num-1}', alpha=0.9)
       
       # タイトルのみ設定（軸ラベルは削除）
       ax.set_title(f'Sensor {sensor_num}', fontsize=12, fontweight='bold', bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
@@ -106,9 +117,17 @@ class PIRSensorVisualizer:
       # Y軸の目盛りを1Vごとに設定
       ax.set_yticks([0, 1, 2, 3, 4, 5])
       
-      # X軸の数値のみを非表示にし、Y軸の数値は表示
-      ax.set_xticklabels([])  # X軸の数値を非表示
-      # Y軸の数値は表示する（ax.set_yticklabels([])を削除）
+      # X軸に分:秒形式で表示
+      def format_time_axis(x, pos):
+        """経過秒数を分:秒形式に変換"""
+        total_seconds = int(x)
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        return f"{minutes}:{seconds:02d}"
+      
+      ax.xaxis.set_major_formatter(FuncFormatter(format_time_axis))
+      ax.tick_params(axis='x', labelsize=8)
+      ax.tick_params(axis='y', labelsize=8)
     
     # 目盛り間隔の情報を右上に追加
     self.add_scale_info(fig, df)
@@ -226,8 +245,11 @@ Data Points: {len(df)}"""
     print(f"Data points: {len(df)}")
     print(f"Measurement period: {df['datetime'].min()} to {df['datetime'].max()}")
     
+    # CSVファイル名を取得
+    csv_filename = os.path.basename(csv_file_path)
+    
     # 物理的レイアウトでプロット
-    layout_fig = self.create_sensor_layout_plot(df, "PIR Sensor Data - Physical Layout")
+    layout_fig = self.create_sensor_layout_plot(df, "PIR Sensor Data - Physical Layout", csv_filename)
     layout_name = "physical"
     
     # 画像を最大化された状態で表示
