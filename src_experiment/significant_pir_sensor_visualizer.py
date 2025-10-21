@@ -55,17 +55,19 @@ class PIRSensorSignificantVisualizer:
   def calculate_noise_thresholds(self, nothing_csv_path, k=2):
     """
     nothingデータからノイズレベルと閾値を計算する
+    PIRセンサは通常時（平均値）から上下に変化するため、絶対偏差で判定する
     
     Parameters:
     -----------
     nothing_csv_path : str
       何もない状態のデータCSVファイルパス
     k : float
-      閾値計算の係数（mean + k * std）
+      閾値計算の係数（平均からの偏差が k * std を超えたら有意とする）
     """
     print(f"\n=== ノイズレベル計算 ===")
     print(f"Nothingデータ: {os.path.basename(nothing_csv_path)}")
     print(f"閾値係数 k = {k}")
+    print(f"判定方法: 通常時電圧からの偏差の絶対値が k×標準偏差を超えたら有意")
     
     nothing_df = self.load_and_process_data(nothing_csv_path)
     if nothing_df is None:
@@ -78,20 +80,21 @@ class PIRSensorSignificantVisualizer:
       if voltage_col in nothing_df.columns:
         mean = nothing_df[voltage_col].mean()
         std = nothing_df[voltage_col].std()
-        threshold = mean + k * std
+        deviation_threshold = k * std  # 平均からの許容偏差
         
         self.sensor_stats[sensor_num] = {
           'mean': mean,
           'std': std,
-          'threshold': threshold
+          'deviation_threshold': deviation_threshold
         }
-        print(f"Sensor {sensor_num:2d}: Mean={mean:.4f}V, Std={std:.4f}V, Threshold={threshold:.4f}V")
+        print(f"Sensor {sensor_num:2d}: Mean={mean:.4f}V, Std={std:.4f}V, Deviation Threshold={deviation_threshold:.4f}V")
     
     return True
   
   def filter_significant_data(self, df):
     """
-    閾値を超える有意なデータのみを抽出する
+    通常時電圧からの偏差が閾値を超える有意なデータのみを抽出する
+    PIRセンサは平均値から上下両方に変化するため、絶対偏差で判定する
     
     Parameters:
     -----------
@@ -112,12 +115,18 @@ class PIRSensorSignificantVisualizer:
     for sensor_num in range(1, 13):
       voltage_col = f'voltage_no{sensor_num}'
       if voltage_col in filtered_df.columns and sensor_num in self.sensor_stats:
-        threshold = self.sensor_stats[sensor_num]['threshold']
-        # 閾値以下の値を0に設定
+        mean = self.sensor_stats[sensor_num]['mean']
+        deviation_threshold = self.sensor_stats[sensor_num]['deviation_threshold']
+        
+        # 平均値からの偏差の絶対値を計算
+        deviation = np.abs(filtered_df[voltage_col] - mean)
+        
+        # 偏差が閾値を超える場合は元の値を保持、そうでない場合は平均値を設定
+        # これにより、有意な変化のみがグラフに表示される
         filtered_df[voltage_col] = np.where(
-          filtered_df[voltage_col] > threshold,
-          filtered_df[voltage_col],
-          0
+          deviation > deviation_threshold,
+          filtered_df[voltage_col],  # 有意な変化：元の値を保持
+          mean  # 有意でない：平均値（通常時）を設定
         )
     
     return filtered_df
@@ -276,10 +285,21 @@ class PIRSensorSignificantVisualizer:
       # プロット
       ax.plot(seconds_data, voltage_data, linewidth=1.5, color=f'C{sensor_num-1}', alpha=0.9)
       
-      # 閾値が計算されている場合は閾値線を表示
+      # 閾値が計算されている場合は平均値と閾値範囲を表示
       if sensor_num in self.sensor_stats:
-        threshold = self.sensor_stats[sensor_num]['threshold']
-        ax.axhline(y=threshold, color='red', linestyle='--', linewidth=1, alpha=0.7, label=f'Threshold: {threshold:.2f}V')
+        mean = self.sensor_stats[sensor_num]['mean']
+        deviation_threshold = self.sensor_stats[sensor_num]['deviation_threshold']
+        
+        # 平均値（通常時）のライン
+        ax.axhline(y=mean, color='green', linestyle='-', linewidth=1.5, alpha=0.7, label=f'Mean: {mean:.2f}V')
+        
+        # 上限閾値のライン
+        upper_threshold = mean + deviation_threshold
+        ax.axhline(y=upper_threshold, color='red', linestyle='--', linewidth=1, alpha=0.7, label=f'Upper: {upper_threshold:.2f}V')
+        
+        # 下限閾値のライン
+        lower_threshold = mean - deviation_threshold
+        ax.axhline(y=lower_threshold, color='red', linestyle='--', linewidth=1, alpha=0.7, label=f'Lower: {lower_threshold:.2f}V')
       
       # タイトルのみ設定（軸ラベルは削除）
       ax.set_title(f'Sensor {sensor_num}', fontsize=12, fontweight='bold', bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
