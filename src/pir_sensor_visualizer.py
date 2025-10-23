@@ -23,20 +23,20 @@ class PIRSensorVisualizer:
   
   def __init__(self):
     # 提供された配置情報に基づいたセンサーレイアウト
-    # 12行12列のグリッドで細かな位置調整、各グラフは2x2セルで大きく表示
+    # 24行24列のグリッドで細かな位置調整、各グラフは4x4セルで大きく表示
     self.sensor_positions = {
-      1:  (8, 7),       # 上から5段目右寄り
-      4:  (4, 7),       # 下から7段目右寄り
-      7:  (4, 3),      # 下段左
-      10: (8, 3),       # 上から5段目左寄り
-      3:  (9, 10),      # 上段右
-      5:  (3, 10),      # 下から5段目右端
-      9:  (3, 0),       # 下から5段目左端
-      11: (9, 0),      # 上段左
-      2:  (11, 8),      # 上から3段目右端
-      6:  (1, 8),       # 下から7段目左寄り
-      8:  (1, 2),      # 下段右
-      12: (11, 2),       # 上から3段目左端
+      1:  (16, 13),       # 上から5段目右寄り
+      4:  (8, 13),       # 下から7段目右寄り
+      7:  (8, 7),      # 下段左
+      10: (16, 7),       # 上から5段目左寄り
+      3:  (18, 19),      # 上段右
+      5:  (6, 19),      # 下から5段目右端
+      9:  (6, 1),       # 下から5段目左端
+      11: (18, 1),      # 上段左
+      2:  (22, 13),      # 上から3段目右端
+      6:  (2, 13),       # 下から7段目左寄り
+      8:  (2, 7),      # 下段右
+      12: (22, 7),       # 上から3段目左端
     }
   
   def load_and_process_data(self, csv_file_path):
@@ -68,7 +68,7 @@ class PIRSensorVisualizer:
       元データ全体の開始時刻（時間範囲抽出時に使用）
     """
     # 背景画像の読み込み
-    figure_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "figure", "データビジュアル.png")
+    figure_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "figure", "データビジュアルv2.png")
     try:
       background_img = Image.open(figure_path)
     except Exception as e:
@@ -89,16 +89,17 @@ class PIRSensorVisualizer:
     if background_img is not None:
       # メインの軸を作成（背景用）
       main_ax = fig.add_subplot(111)
-      main_ax.imshow(background_img, extent=[0, 12, 0, 12], aspect='auto', alpha=0.5)
-      main_ax.set_xlim(0, 12)
-      main_ax.set_ylim(0, 12)
+      # アスペクト比の維持をここで行う
+      main_ax.imshow(background_img, extent=[2, 22, 0, 22], aspect='auto', alpha=0.5)
+      main_ax.set_xlim(0, 24)
+      main_ax.set_ylim(0, 24)
       main_ax.axis('off')
     
-    # 12x12のサブプロットグリッドを作成（各グラフは2x2セルで表示）
+    # 24x24のサブプロットグリッドを作成（各グラフは4x4セルで表示）
     for sensor_num, (row, col) in self.sensor_positions.items():
       # 行を反転（matplotlibは下から上へ、我々の定義は上から下へ）
-      adjusted_row = 11 - row
-      ax = plt.subplot2grid((12, 12), (adjusted_row, col), rowspan=2, colspan=2)
+      adjusted_row = 23 - row
+      ax = plt.subplot2grid((24, 24), (adjusted_row, col), rowspan=4, colspan=4)
       
       # 電圧データの取得
       voltage_col = f'voltage_no{sensor_num}'
@@ -149,7 +150,7 @@ class PIRSensorVisualizer:
     self.add_scale_info(fig, df)
     
     plt.tight_layout()
-    plt.subplots_adjust(top=0.93, bottom=0.08)
+    plt.subplots_adjust(top=0.93, bottom=0.08, left=0.08, right=0.92)
     return fig
   
   def add_scale_info(self, fig, df):
@@ -415,7 +416,7 @@ Data Points: {len(df)}"""
       os.makedirs(figure_dir, exist_ok=True)
       
       output_path = os.path.join(figure_dir, filename_with_time)
-      layout_fig.savefig(output_path, dpi=300, bbox_inches='tight')
+      layout_fig.savefig(output_path, dpi=300)
       print(f"Graph saved: {output_path}")
     else:
       print("Graph not saved.")

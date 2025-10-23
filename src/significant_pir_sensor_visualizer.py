@@ -455,8 +455,7 @@ Filtering: {"Enabled" if self.sensor_stats else "Disabled"}"""
     print(f"使用するNothingデータ: {nothing_csv_path}")
     
     # 閾値係数kの入力
-    k_input = input("\n閾値係数 k を入力してください (デフォルト: 2, Enterでスキップ): ").strip()
-    k = float(k_input) if k_input else 2.0
+    k = 2
     
     # ノイズ閾値を計算
     if not self.calculate_noise_thresholds(nothing_csv_path, k):
