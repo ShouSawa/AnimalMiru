@@ -261,6 +261,7 @@ Data Points: {len(df)}"""
       filtered_df = df[df['datetime'] <= extract_end].copy()
       print(f"抽出: 最初の{max_seconds}秒 ({start_time} から {extract_end})")
       
+    # 真ん中の部分から指定秒数を抽出する場合
     elif extraction_method == 2:
       # 真ん中の max_seconds 秒
       middle_point = total_duration / 2
