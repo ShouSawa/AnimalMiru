@@ -113,6 +113,7 @@ class PIRSensorVisualizer:
       else:
         start_time = df['datetime'].iloc[0]
       
+      # 経過秒数を計算
       seconds_data = (time_data - start_time).dt.total_seconds()
       
       # プロット
