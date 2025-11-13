@@ -12,7 +12,7 @@ import numpy as np
 import os
 from datetime import datetime
 from matplotlib.patches import Rectangle
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from PIL import Image
 
 # フォント設定
@@ -96,6 +96,14 @@ class PIRSensorVisualizer:
       main_ax.axis('off')
     
     # 24x24のサブプロットグリッドを作成（各グラフは4x4セルで表示）
+    # データ全体の時間範囲を計算（X軸の目盛り設定用）
+    if original_start_time is not None:
+      start_time_for_ticks = original_start_time
+    else:
+      start_time_for_ticks = df['datetime'].iloc[0]
+    
+    time_range_seconds = (df['datetime'].max() - start_time_for_ticks).total_seconds()
+    
     for sensor_num, (row, col) in self.sensor_positions.items():
       # 行を反転（matplotlibは下から上へ、我々の定義は上から下へ）
       adjusted_row = 23 - row
@@ -132,8 +140,8 @@ class PIRSensorVisualizer:
       # Y軸の範囲を0-5Vに固定（全グラフで統一）
       ax.set_ylim(0, 5)
       
-      # Y軸の目盛りを1Vごとに設定
-      ax.set_yticks([0, 1, 2, 3, 4, 5])
+      # Y軸の目盛りを1, 3, 5Vに設定
+      ax.set_yticks([1, 3, 5])
       
       # X軸に分:秒形式で表示
       def format_time_axis(x, pos):
@@ -144,14 +152,18 @@ class PIRSensorVisualizer:
         return f"{minutes}:{seconds:02d}"
       
       ax.xaxis.set_major_formatter(FuncFormatter(format_time_axis))
-      ax.tick_params(axis='x', labelsize=12)
-      ax.tick_params(axis='y', labelsize=12)
+      
+      # X軸の目盛りを5メモリに設定
+      ax.xaxis.set_major_locator(MaxNLocator(nbins=3, integer=False))
+      
+      ax.tick_params(axis='x', labelsize=16)
+      ax.tick_params(axis='y', labelsize=16)
     
     # 目盛り間隔の情報を右上に追加
     self.add_scale_info(fig, df)
     
     plt.tight_layout()
-    plt.subplots_adjust(top=0.93, bottom=0.08, left=0.08, right=0.92)
+    plt.subplots_adjust(top=0.94, bottom=0.03, left=0.03, right=0.92)
     return fig
   
   def add_scale_info(self, fig, df):
@@ -175,19 +187,30 @@ class PIRSensorVisualizer:
     voltage_max = np.nanmax(all_voltages)
     voltage_range = voltage_max - voltage_min
     
-    # 情報テキストを作成
+    # 情報テキストを作成（縦書き用に改行を増やす）
     info_text = f"""Scale Information:
-Time Range: {total_seconds:.1f} seconds
-X-axis Grid: ~{time_per_tick:.1f} sec/interval
-Y-axis: Fixed 0-5V (1V intervals)
-Actual Data Range: {voltage_min:.3f}V - {voltage_max:.3f}V
-Data Points: {len(df)}"""
+
+Time Range:
+{total_seconds:.1f} seconds
+
+X-axis Grid:
+~{time_per_tick:.1f} sec/interval
+
+Y-axis:
+Fixed 0-5V
+(1V intervals)
+
+Actual Data Range:
+{voltage_min:.3f}V - {voltage_max:.3f}V
+
+Data Points:
+{len(df)}"""
     
-    # 右上に情報を配置
-    fig.text(0.98, 0.98, info_text, 
-            fontsize=10, 
-            verticalalignment='top', 
-            horizontalalignment='right',
+    # 右端に縦長に情報を配置
+    fig.text(0.93, 0.5, info_text, 
+            fontsize=9, 
+            verticalalignment='center', 
+            horizontalalignment='left',
             bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=0.9, edgecolor="black"),
             transform=fig.transFigure)
   
@@ -368,14 +391,8 @@ Data Points: {len(df)}"""
     # CSVファイル名を取得
     csv_filename = os.path.basename(csv_file_path)
     
-    # タイトルに時間範囲情報を追加
-    title = "PIR Sensor Data - Physical Layout"
-    if max_seconds is not None:
-      extraction_methods = {1: "First", 2: "Middle", 3: "Last"}
-      title += f" ({extraction_methods[extraction_method]} {max_seconds}s)"
-    
     # 物理的レイアウトでプロット
-    layout_fig = self.create_sensor_layout_plot(df, title, csv_filename, original_start_time)
+    layout_fig = self.create_sensor_layout_plot(df, csv_filename, original_start_time)
     layout_name = "physical"
     
     # 画像を最大化された状態で表示
