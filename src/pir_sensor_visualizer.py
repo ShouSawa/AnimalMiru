@@ -120,7 +120,7 @@ class PIRSensorVisualizer:
       ax.plot(seconds_data, voltage_data, linewidth=1.5, color=f'C{sensor_num-1}', alpha=0.9)
       
       # タイトルのみ設定（軸ラベルは削除）
-      ax.set_title(f'Sensor {sensor_num}', fontsize=12, fontweight='bold', bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
+      ax.set_title(f'Sensor {sensor_num}', fontsize=18, fontweight='bold', bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
       
       # グリッド線を横軸・縦軸両方に表示
       ax.grid(True, alpha=0.4, linestyle='-', linewidth=0.5)
@@ -144,8 +144,8 @@ class PIRSensorVisualizer:
         return f"{minutes}:{seconds:02d}"
       
       ax.xaxis.set_major_formatter(FuncFormatter(format_time_axis))
-      ax.tick_params(axis='x', labelsize=8)
-      ax.tick_params(axis='y', labelsize=8)
+      ax.tick_params(axis='x', labelsize=12)
+      ax.tick_params(axis='y', labelsize=12)
     
     # 目盛り間隔の情報を右上に追加
     self.add_scale_info(fig, df)
