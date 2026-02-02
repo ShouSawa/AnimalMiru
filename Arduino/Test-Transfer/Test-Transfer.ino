@@ -80,6 +80,7 @@ void setup() {
   delay(1000);
 }
 
+// ADC割り込み処理
 ISR(ADC_vect) {
   uint16_t value = ADC;
   rawValues[currentChannel] = value; // 生データを保存
