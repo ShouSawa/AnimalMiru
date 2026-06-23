@@ -8,7 +8,7 @@
 
 #define DEBUG true           // デバッグメッセージ表示ON/OFF
 #define INITIAL_SETUP true   // 初期設定コマンド実行ON/OFF
-#define IM920_NN "0004"      // このデバイスのノード番号
+#define IM920_NN "0002"      // このデバイスのノード番号
 #define IM920_GN "00000A2A"  // 通信グループ番号
 
 // IM920s接続ピン設定
