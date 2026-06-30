@@ -52,12 +52,21 @@ void setup() {
   // IM920s初期化
   im920.begin(19200);     // IM920sとの通信を19200bpsで初期化
 
+  delay(1000);                         // 安定化待ち
+  // 初期設定
+  if (INITIAL_SETUP) {                // 初期設定が有効なら
+    im920_command("ENWR");            // 設定書き込みモード有効化
+    im920_command("STNN " IM920_NN);  // ノード番号設定
+    im920_command("STGN " IM920_GN);  // グループ番号設定
+  }
+  im920_command("RDNN");              // ノード番号読み出し(確認用)
+  delay(1000);                        // 初期化完了待ち
+
   // ADC設定
   ADMUX = (1 << REFS0) | (channels[currentChannel] & 0x07);  // 基準電圧AVcc、最初のセンサ選択
   ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADSC) | (1 << ADPS2) | (1 << ADPS1);
   // ADEN:ADC有効化、ADIE:割込み有効化、ADSC:変換開始、ADPS:プリスケーラ64(19.2kサンプル/秒)
   ADCSRB = 0;  // 自動トリガなし(手動変換モード)
-
 
   // タイマ設定（Timer1を使って約350msごとに割込み）
   /*
@@ -74,16 +83,6 @@ void setup() {
   TCCR1B |= (1 << CS12) | (1 << CS10);  // プリスケーラ1024設定
   TIMSK1 |= (1 << OCIE1A);              // タイマ比較一致割込み許可
   interrupts();                         // 全割込み再開
-
-  delay(100);                         // 安定化待ち
-  // 初期設定
-  if (INITIAL_SETUP) {                // 初期設定が有効なら
-    im920_command("ENWR");            // 設定書き込みモード有効化
-    im920_command("STNN " IM920_NN);  // ノード番号設定
-    im920_command("STGN " IM920_GN);  // グループ番号設定
-  }
-  im920_command("RDNN");              // ノード番号読み出し(確認用)
-  delay(1000);                        // 初期化完了待ち
 }
 
 // ADC割り込み処理(AD変換完了時に自動実行)
@@ -183,6 +182,7 @@ void loop() {
     // 通信安定化のためADC割り込みを一時停止
     byte oldADCSRA = ADCSRA;             // 現在のADC設定を保存
     ADCSRA &= ~(1 << ADIE);              // ADC割込みを無効化(通信中のノイズ防止)
+    TIMSK1 &= ~(1 << OCIE1A);            // Timer1の割込みも一時停止
 
     sendFlag = false;                    // フラグをクリア
 
@@ -236,5 +236,6 @@ void loop() {
 
     // ADC割り込み再開
     ADCSRA = oldADCSRA;                  // ADC設定を元に戻す(割込み再開)
+    TIMSK1 |= (1 << OCIE1A);             // Timer1の割込み再開
   }
 }
