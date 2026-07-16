@@ -1,3 +1,4 @@
+# ※ボツプログラム
 import serial
 import time
 
