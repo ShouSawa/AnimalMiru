@@ -1,0 +1,7 @@
+{
+  "gateway_id": "GW01",
+  "sensor_data": [
+    {"node_id": "0002", "rssi_hex": "E5", "payload_hex": "72,71,73", "timestamp": 1769067042.2}
+  ],
+  "received_at": "2026-08-12T10:00:00"
+}
