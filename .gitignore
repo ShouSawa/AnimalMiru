@@ -1,3 +1,4 @@
 .vscode
 Desktop.ini
 build
+backend/.env
