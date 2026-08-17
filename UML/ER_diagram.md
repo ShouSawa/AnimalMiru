@@ -5,17 +5,17 @@ erDiagram
   }
 
   node_master {
-    int node_id PK "ノード番号"
+    string node_id PK "ノード番号"
     string gateway_id FK "所属ゲートウェイ"
   }
 
   node_data {
-    int node_id PK,FK "ノード番号"
+    string node_id PK,FK "ノード番号"
     string node_timestamp PK "ノード側送信時刻"
   }
 
   sensor_reading {
-    int node_id PK,FK "ノード番号"
+    string node_id PK,FK "ノード番号"
     string node_timestamp PK,FK ""
     int round_index PK "何回目の測定か(1-10)"
     string sensor_id PK "センサー番号(A1など)"
@@ -25,7 +25,7 @@ erDiagram
 
   gateway_data {
     string gw_timestamp PK "ゲートウェイ受信時刻"
-    int node_id PK,FK "ノード番号"
+    string node_id PK,FK "ノード番号"
     string node_timestamp PK,FK ""
     string rssi_hex "電波強度"
   }
