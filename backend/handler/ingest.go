@@ -2,7 +2,11 @@
 package handler
 
 import (
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/ShouSawa/AnimalMiru/backend/repository"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,18 +34,13 @@ func Ingest(c *gin.Context) {
 	// received_at を time.Time に変換
 	receivedAt, err := time.Parse(time.RFC3339, req.ReceivedAt)
 	if err != nil {
-		receivedAt = time.Now()  // パース失敗時は現在時刻を使う
+		receivedAt = time.Now() // パース失敗時は現在時刻を使う
 	}
 
 	// sensor_data の各エントリをDBに保存する
 	savedCount := 0
 	for _, entry := range req.SensorData {
-		// node_id を文字列から整数に変換（"0002" → 2）
-		nodeID, err := strconv.Atoi(entry.NodeID)
-		if err != nil {
-			log.Printf("node_id変換失敗: %s", entry.NodeID)
-			continue
-		}
+		// node_id は "0002" の形式で届くため、変換せずそのまま使う
 
 		// timestamp（UNIXタイムスタンプ）を time.Time に変換
 		nodeTimestamp := time.Unix(int64(entry.Timestamp), 0).UTC()
@@ -50,7 +49,7 @@ func Ingest(c *gin.Context) {
 		err = repository.SaveSensorData(
 			req.GatewayID,
 			receivedAt,
-			nodeID,
+			entry.NodeID,
 			nodeTimestamp,
 			entry.RssiHex,
 			entry.PayloadHex,
@@ -64,7 +63,7 @@ func Ingest(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
-		"saved":  savedCount,   // 保存できた件数を返す
+		"saved":  savedCount, // 保存できた件数を返す
 		"total":  len(req.SensorData),
 	})
 }

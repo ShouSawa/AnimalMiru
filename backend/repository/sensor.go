@@ -10,7 +10,7 @@ import (
 )
 
 // SaveSensorData は受け取ったセンサデータを3つのテーブルに保存する関数
-func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID int,
+func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 	nodeTimestamp time.Time, rssiHex string, payloadHex string) error {
 
 	// ── 1. node_data に保存 ──────────────────────────────
@@ -40,11 +40,12 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID int,
 	// payload_hex を "72,71,73,72,71,6D,..." のようなカンマ区切りに分解する
 	hexValues := strings.Split(strings.TrimSpace(payloadHex), ",")
 
-	// 3バイトで1セット（A1・A2・A3）、最大10セット
+	// 3バイトで1セット（A1・A2・A3）、最大10セット分をセンサーごとにまとめる
 	sensorIDs := []string{"A1", "A2", "A3"}
-	for i := 0; i+2 < len(hexValues); i += 3 {
-		roundIndex := i/3 + 1  // 1セット目=1、2セット目=2、...
+	hexBySensor := make(map[string][]string, len(sensorIDs))
+	decBySensor := make(map[string][]string, len(sensorIDs))
 
+	for i := 0; i+2 < len(hexValues); i += 3 {
 		for j, sensorID := range sensorIDs {
 			hexStr := strings.TrimSpace(hexValues[i+j])
 
@@ -54,15 +55,28 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID int,
 				continue  // 変換失敗した値はスキップ
 			}
 
-			_, err = db.DB.Exec(`
-				INSERT INTO sensor_reading
-					(node_id, node_timestamp, round_index, sensor_id, value_hex, value_dec)
-				VALUES ($1, $2, $3, $4, $5, $6)
-				ON CONFLICT DO NOTHING
-			`, nodeID, nodeTimestamp, roundIndex, sensorID, hexStr, int(decVal))
-			if err != nil {
-				return err
-			}
+			hexBySensor[sensorID] = append(hexBySensor[sensorID], hexStr)
+			decBySensor[sensorID] = append(decBySensor[sensorID], strconv.FormatInt(decVal, 10))
+		}
+	}
+
+	// センサーごとに1行（複数ラウンド分をカンマ区切りでまとめて）保存する
+	for _, sensorID := range sensorIDs {
+		if len(hexBySensor[sensorID]) == 0 {
+			continue  // このセンサーの値が1つも取れなかった場合は保存しない
+		}
+
+		valueHex := strings.Join(hexBySensor[sensorID], ",")
+		valueDec := strings.Join(decBySensor[sensorID], ",")
+
+		_, err = db.DB.Exec(`
+			INSERT INTO sensor_reading
+				(node_id, node_timestamp, sensor_id, value_hex, value_dec)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT DO NOTHING
+		`, nodeID, nodeTimestamp, sensorID, valueHex, valueDec)
+		if err != nil {
+			return err
 		}
 	}
 
