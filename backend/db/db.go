@@ -1,3 +1,7 @@
+/*
+DB接続を管理するファイル
+*/
+
 // db/db.go
 package db
 

@@ -22,17 +22,49 @@ type IngestRequest struct {
 
 func Ingest(c *gin.Context) {
 	var req IngestRequest
-
-	// JSONを受け取る
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// とりあえずログに出力（DB保存は次のステップで追加）
+	// received_at を time.Time に変換
+	receivedAt, err := time.Parse(time.RFC3339, req.ReceivedAt)
+	if err != nil {
+		receivedAt = time.Now()  // パース失敗時は現在時刻を使う
+	}
+
+	// sensor_data の各エントリをDBに保存する
+	savedCount := 0
+	for _, entry := range req.SensorData {
+		// node_id を文字列から整数に変換（"0002" → 2）
+		nodeID, err := strconv.Atoi(entry.NodeID)
+		if err != nil {
+			log.Printf("node_id変換失敗: %s", entry.NodeID)
+			continue
+		}
+
+		// timestamp（UNIXタイムスタンプ）を time.Time に変換
+		nodeTimestamp := time.Unix(int64(entry.Timestamp), 0).UTC()
+
+		// DBに保存
+		err = repository.SaveSensorData(
+			req.GatewayID,
+			receivedAt,
+			nodeID,
+			nodeTimestamp,
+			entry.RssiHex,
+			entry.PayloadHex,
+		)
+		if err != nil {
+			log.Printf("DB保存失敗 node=%s: %v", entry.NodeID, err)
+			continue
+		}
+		savedCount++
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "ok",
-		"gateway": req.GatewayID,
-		"count":   len(req.SensorData),
+		"status": "ok",
+		"saved":  savedCount,   // 保存できた件数を返す
+		"total":  len(req.SensorData),
 	})
 }
