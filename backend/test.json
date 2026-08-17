@@ -1,7 +1,12 @@
 {
   "gateway_id": "GW01",
   "sensor_data": [
-    {"node_id": "0002", "rssi_hex": "E5", "payload_hex": "72,71,73", "timestamp": 1769067042.2}
+    {
+      "node_id": "0002",
+      "rssi_hex": "E5",
+      "payload_hex": "72,71,73,72,71,6D,6D,71,6D,6D,6B,6D,6D,6B,70,6E,6B,70,6E,6C,70,6F,6C,70,6F,6D,70,6F,6E,70",
+      "timestamp": 1769067042.2363827
+    }
   ],
-  "received_at": "2026-08-12T10:00:00"
+  "received_at": "2026-07-16T14:01:18.435879"
 }
