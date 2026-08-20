@@ -22,7 +22,7 @@ func main() {
 	db.Init()
 
 	// TCPサーバーを起動（9000番）
-	go {tcp.Start("9000")
+	go tcp.Start("9000")
 
 	// Ctrl+C や systemctl stop を受け取るまで待機
 	quit := make(chan os.Signal, 1)
