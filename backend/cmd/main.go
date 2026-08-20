@@ -2,11 +2,14 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
-	"github.com/ShouSawa/AnimalMiru/backend/db"
-	"github.com/ShouSawa/AnimalMiru/backend/handler"
-	"github.com/gin-gonic/gin"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/ShouSawa/AnimalMiru/backend/db"
+	"github.com/ShouSawa/AnimalMiru/backend/tcp"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -18,11 +21,13 @@ func main() {
 	// DB接続を初期化（ここで失敗するとプログラムが終了する）
 	db.Init()
 
-	r := gin.Default()
-	api := r.Group("/api")
-	{
-		api.POST("/ingest", handler.Ingest)
-	}
+	// TCPサーバーを起動（9000番）
+	go {tcp.Start("9000")
 
-	r.Run(":8081")
+	// Ctrl+C や systemctl stop を受け取るまで待機
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("シャットダウンします")
 }
