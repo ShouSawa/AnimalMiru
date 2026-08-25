@@ -59,7 +59,7 @@ def receive_sensor():
     return jsonify({"status": "ok"}), 200
 
 # Flaskとは別スレッドでTCPサーバーを起動
-threading.Thread(target=start_tcp_server, daemon=True).start()
+# threading.Thread(target=start_tcp_server, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

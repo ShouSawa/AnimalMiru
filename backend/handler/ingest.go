@@ -3,11 +3,9 @@ package handler
 
 import (
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/ShouSawa/AnimalMiru/backend/repository"
-	"github.com/gin-gonic/gin"
 )
 
 // BeagleBoneから受け取るJSONの構造
@@ -24,28 +22,18 @@ type IngestRequest struct {
 	ReceivedAt string        `json:"received_at"`
 }
 
-func Ingest(c *gin.Context) {
-	var req IngestRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+// SaveIngestRequest はTCPから受け取ったデータを保存する共通処理
+func SaveIngestRequest(req *IngestRequest) (saved int, total int) {
+	total = len(req.SensorData)
 
-	// received_at を time.Time に変換
-	receivedAt, err := time.Parse(time.RFC3339, req.ReceivedAt)
+	receivedAt, err := time.Parse(time.RFC3339Nano, req.ReceivedAt)
 	if err != nil {
-		receivedAt = time.Now() // パース失敗時は現在時刻を使う
+		receivedAt = time.Now()
 	}
 
-	// sensor_data の各エントリをDBに保存する
-	savedCount := 0
 	for _, entry := range req.SensorData {
-		// node_id は "0002" の形式で届くため、変換せずそのまま使う
-
-		// timestamp（UNIXタイムスタンプ）を time.Time に変換
 		nodeTimestamp := time.Unix(int64(entry.Timestamp), 0).UTC()
 
-		// DBに保存
 		err = repository.SaveSensorData(
 			req.GatewayID,
 			receivedAt,
@@ -58,12 +46,7 @@ func Ingest(c *gin.Context) {
 			log.Printf("DB保存失敗 node=%s: %v", entry.NodeID, err)
 			continue
 		}
-		savedCount++
+		saved++
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"saved":  savedCount, // 保存できた件数を返す
-		"total":  len(req.SensorData),
-	})
+	return
 }
