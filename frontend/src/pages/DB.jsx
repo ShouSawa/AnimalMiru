@@ -5,6 +5,13 @@ export default function DB() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    // ページを開いた時点で、DBに既に保存済みの直近データを読み込む
+    // （WebSocketはこの後の新着データしか配信しないため）
+    fetch(`/api/sensor-data/recent`)
+      .then((res) => res.json())
+      .then((data) => setLogs(data.sensor_data ?? []))
+      .catch((err) => console.error("初期データ取得失敗:", err));
+
     // WebSocket接続（Nginx経由）
     const ws = new WebSocket(`ws://${window.location.host}/ws/realtime`);
 

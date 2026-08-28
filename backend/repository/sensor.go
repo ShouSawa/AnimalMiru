@@ -82,3 +82,62 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 
 	return nil  // 全て成功
 }
+
+// SensorLogRow はDB画面の一覧表示用に組み立てた1ノード分のデータ
+type SensorLogRow struct {
+	NodeID     string `json:"node_id"`
+	RssiHex    string `json:"rssi_hex"`
+	Timestamp  int64  `json:"timestamp"`
+	PayloadHex string `json:"payload_hex"`
+}
+
+// GetRecentLogs はgateway_data・sensor_readingから直近limit件を取得し、
+// フロントの一覧表示用に組み立てて返す（新しい順）
+func GetRecentLogs(limit int) ([]SensorLogRow, error) {
+	var gwRows []struct {
+		NodeID        string    `db:"node_id"`
+		NodeTimestamp time.Time `db:"node_timestamp"`
+		RssiHex       string    `db:"rssi_hex"`
+	}
+
+	err := db.DB.Select(&gwRows, `
+		SELECT node_id, node_timestamp, rssi_hex
+		FROM gateway_data
+		ORDER BY gw_timestamp DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	logs := make([]SensorLogRow, 0, len(gwRows))
+	for _, g := range gwRows {
+		var sensorRows []struct {
+			SensorID string `db:"sensor_id"`
+			ValueHex string `db:"value_hex"`
+		}
+		err := db.DB.Select(&sensorRows, `
+			SELECT sensor_id, value_hex
+			FROM sensor_reading
+			WHERE node_id = $1 AND node_timestamp = $2
+			ORDER BY sensor_id
+		`, g.NodeID, g.NodeTimestamp)
+		if err != nil {
+			return nil, err
+		}
+
+		parts := make([]string, 0, len(sensorRows))
+		for _, s := range sensorRows {
+			parts = append(parts, s.SensorID+"="+s.ValueHex)
+		}
+
+		logs = append(logs, SensorLogRow{
+			NodeID:     g.NodeID,
+			RssiHex:    g.RssiHex,
+			Timestamp:  g.NodeTimestamp.Unix(),
+			PayloadHex: strings.Join(parts, " / "),
+		})
+	}
+
+	return logs, nil
+}
