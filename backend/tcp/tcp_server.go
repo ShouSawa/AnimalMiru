@@ -9,10 +9,16 @@ import (
 	"time"
 
 	"github.com/ShouSawa/AnimalMiru/backend/handler"
+	"github.com/ShouSawa/AnimalMiru/backend/websocket"
 )
 
+// hub はDB保存後にブラウザへ配信するためのWebSocketハブ（Startで注入される）
+var hub *websocket.Hub
+
 // Start はTCPサーバーを起動する関数（goroutineで呼ぶ）
-func Start(port string) {
+func Start(port string, h *websocket.Hub) {
+	hub = h
+
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("TCPサーバー起動失敗: %v", err)
@@ -59,6 +65,11 @@ func handleConnection(conn net.Conn) {
 		// DB保存（handler共通処理を呼ぶ）
 		saved, total := handler.SaveIngestRequest(&req)
 		log.Printf("TCP受信・保存完了: saved=%d total=%d", saved, total)
+
+		// 保存できたデータがあればWebSocket接続中のブラウザへ配信する
+		if saved > 0 && hub != nil {
+			hub.Broadcast(&req)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
