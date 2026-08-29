@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import styles from "./DB.module.css";
 
 export default function DB() {
   const [logs, setLogs] = useState([]);
@@ -28,44 +29,40 @@ export default function DB() {
   }, []);
 
   return (
-    <div style={{ padding: "24px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+    <div className={styles.page}>
+      <div className={styles.header}>
         <h2>DBリアルタイムモニター</h2>
         {/* 接続状態インジケーター */}
-        <span style={{
-          background: connected ? "#2d6a4f" : "#c0392b",
-          color: "white",
-          padding: "4px 10px",
-          borderRadius: "12px",
-          fontSize: "13px",
-        }}>
+        <span
+          className={`${styles.statusBadge} ${
+            connected ? styles.statusConnected : styles.statusDisconnected
+          }`}
+        >
           {connected ? "● 接続中" : "○ 切断"}
         </span>
       </div>
 
-      <p style={{ color: "#555", fontSize: "14px" }}>
-        受信件数: {logs.length} 件
-      </p>
+      <p className={styles.count}>受信件数: {logs.length} 件</p>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "14px" }}>
+      <div className={styles.tableWrapper}>
+        <table className={styles.table}>
           <thead>
-            <tr style={{ background: "#2d6a4f", color: "white" }}>
-              <th style={th}>ノード番号</th>
-              <th style={th}>通信強度</th>
-              <th style={th}>タイムスタンプ</th>
-              <th style={th}>ペイロード（16進）</th>
+            <tr className={styles.theadRow}>
+              <th className={styles.th}>ノード番号</th>
+              <th className={styles.th}>通信強度</th>
+              <th className={styles.th}>タイムスタンプ</th>
+              <th className={styles.th}>ペイロード（16進）</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log, i) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? "#f9f9f9" : "white" }}>
-                <td style={td}>{log.node_id}</td>
-                <td style={td}>{log.rssi_hex}</td>
-                <td style={td}>
+              <tr key={i} className={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+                <td className={styles.td}>{log.node_id}</td>
+                <td className={styles.td}>{log.rssi_hex}</td>
+                <td className={styles.td}>
                   {new Date(log.timestamp * 1000).toLocaleString("ja-JP")}
                 </td>
-                <td style={{ ...td, fontFamily: "monospace", fontSize: "12px" }}>
+                <td className={`${styles.td} ${styles.payloadTd}`}>
                   {log.payload_hex}
                 </td>
               </tr>
@@ -76,13 +73,3 @@ export default function DB() {
     </div>
   );
 }
-
-const th = {
-  padding: "10px 16px",
-  textAlign: "left",
-  borderBottom: "2px solid #1a4a32",
-};
-const td = {
-  padding: "8px 16px",
-  borderBottom: "1px solid #ddd",
-};

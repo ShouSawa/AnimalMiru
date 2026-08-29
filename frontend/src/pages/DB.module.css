@@ -1,0 +1,68 @@
+.page {
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusBadge {
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.statusConnected {
+  background: #2d6a4f;
+}
+
+.statusDisconnected {
+  background: #c0392b;
+}
+
+.count {
+  color: #555;
+  font-size: 14px;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.theadRow {
+  background: #2d6a4f;
+  color: white;
+}
+
+.th {
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 2px solid #1a4a32;
+}
+
+.rowEven {
+  background: #f9f9f9;
+}
+
+.rowOdd {
+  background: white;
+}
+
+.td {
+  padding: 8px 16px;
+  border-bottom: 1px solid #ddd;
+}
+
+.payloadTd {
+  font-family: monospace;
+  font-size: 12px;
+}
