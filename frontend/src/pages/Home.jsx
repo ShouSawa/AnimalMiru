@@ -1,7 +1,15 @@
+import { useState } from "react";
 import styles from "./Home.module.css";
 import SensorChart from "../components/SensorChart";
+import SettingsPanel from "../components/SettingsPanel";
+import { DEFAULT_SETTINGS } from "../components/sensorSettings";
 
 export default function Home() {
+  // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
+  const [appliedSettings, setAppliedSettings] = useState(DEFAULT_SETTINGS);
+  const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
+  const startDateTime = new Date(year, month - 1, day, hour, minute, second);
+
   // テストフィールドの仮ノード座標（後から実測値に差し替え可能）
   // charts: 各ノードに付いている3つのセンサのグラフ表示位置（仮）
   const nodes = [
@@ -13,7 +21,7 @@ export default function Home() {
       charts: [
         { top: "6%", left: "82%" },
         { top: "24%", left: "96%" },
-        { top: "38%", left: "62%" },
+        { top: "30%", left: "66%" },
       ],
     },
     {
@@ -24,7 +32,7 @@ export default function Home() {
       charts: [
         { top: "74%", left: "96%" },
         { top: "92%", left: "68%" },
-        { top: "60%", left: "62%" },
+        { top: "70%", left: "66%" },
       ],
     },
     {
@@ -35,7 +43,7 @@ export default function Home() {
       charts: [
         { top: "74%", left: "4%" },
         { top: "92%", left: "32%" },
-        { top: "60%", left: "38%" },
+        { top: "70%", left: "34%" },
       ],
     },
     {
@@ -46,7 +54,7 @@ export default function Home() {
       charts: [
         { top: "6%", left: "18%" },
         { top: "24%", left: "4%" },
-        { top: "38%", left: "38%" },
+        { top: "30%", left: "34%" },
       ],
     },
   ];
@@ -54,6 +62,8 @@ export default function Home() {
   return (
     <div className={styles.page}>
       <h2>テストフィールド - 行動経路表示</h2>
+
+      <SettingsPanel onApply={setAppliedSettings} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー */}
       <div className={styles.mapArea}>
@@ -77,15 +87,20 @@ export default function Home() {
 
         {/* 各センサ値グラフ（枠のみ・ダミーデータ表示。実データ配線は後で行う） */}
         {nodes.map((node) =>
-          node.charts.map((pos, i) => (
-            <SensorChart
-              key={`${node.node_id}-${i}`}
-              label={`Sensor ${i + 1}`}
-              seed={Number(node.node_id) * 10 + i}
-              top={pos.top}
-              left={pos.left}
-            />
-          ))
+          node.charts.map((pos, i) =>
+            appliedSettings.sensorVisibility[i + 1] ? (
+              <SensorChart
+                key={`${node.node_id}-${i}`}
+                label={`Sensor ${i + 1}`}
+                seed={Number(node.node_id) * 10 + i}
+                top={pos.top}
+                left={pos.left}
+                valueUnit={appliedSettings.valueUnit}
+                timeRangeSeconds={appliedSettings.timeRangeSeconds}
+                startDateTime={startDateTime}
+              />
+            ) : null
+          )
         )}
       </div>
 

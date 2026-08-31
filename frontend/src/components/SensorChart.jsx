@@ -27,11 +27,13 @@ function formatTick(voltage, valueUnit) {
   return String(voltage);
 }
 
-function formatTimeTick(minutes) {
-  const hh = Math.floor(minutes / 60);
-  const mm = minutes % 60;
-  return `${hh}:${String(mm).padStart(2, "0")}`;
+// 開始時刻からの経過秒数を「分:秒」表記に変換する
+function formatClockTick(date) {
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
+
+const X_AXIS_TICK_COUNT = 5;
 
 export default function SensorChart({
   label = "Sensor",
@@ -39,10 +41,10 @@ export default function SensorChart({
   left,
   seed = 1,
   pointCount = 40,
-  valueUnit = "voltage", // "voltage" | "hex" | "decimal"（後で切替可能にする）
+  valueUnit = "voltage", // "voltage" | "hex" | "decimal"
   yTicks = [5, 3, 1],
-  timeRangeMinutes = 40, // 横軸の表示範囲（後で変更可能にする）
-  timeTickIntervalMinutes = 20, // 横軸の目盛間隔（後で変更可能にする）
+  timeRangeSeconds = 40, // 横軸の表示範囲（設定エリアから変更可能）
+  startDateTime = new Date(2026, 0, 22, 14, 9, 39), // 横軸の起点時刻（設定エリアから変更可能）
 }) {
   // TODO: 実データ（WebSocket/DB由来）に置き換える。現在はダミー波形。
   const values = useMemo(() => {
@@ -68,8 +70,10 @@ export default function SensorChart({
     .join(" ");
 
   const timeTicks = [];
-  for (let m = 0; m <= timeRangeMinutes; m += timeTickIntervalMinutes) {
-    timeTicks.push(formatTimeTick(m));
+  for (let i = 0; i < X_AXIS_TICK_COUNT; i++) {
+    const offsetSeconds = (timeRangeSeconds * i) / (X_AXIS_TICK_COUNT - 1);
+    const tickDate = new Date(startDateTime.getTime() + offsetSeconds * 1000);
+    timeTicks.push(formatClockTick(tickDate));
   }
 
   return (
@@ -94,12 +98,6 @@ export default function SensorChart({
             {timeTicks.map((t, i) => (
               <span key={i}>{t}</span>
             ))}
-          </div>
-          <div className={styles.xAxisBar}>
-            <span
-              className={styles.xAxisBarActive}
-              style={{ width: `${100 / (timeTicks.length - 1)}%` }}
-            />
           </div>
         </div>
       </div>
