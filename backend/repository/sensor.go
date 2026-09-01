@@ -10,8 +10,9 @@ import (
 )
 
 // SaveSensorData は受け取ったセンサデータを3つのテーブルに保存する関数
+// node_timestampにはノード側の時刻ではなく、サーバーの受信時刻(receivedAt)を使う。
 func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
-	nodeTimestamp time.Time, rssiHex string, payloadHex string) error {
+	rssiHex string, payloadHex string) error {
 
 	// ── 1. node_data に保存 ──────────────────────────────
 	// node_data は (node_id, node_timestamp) の複合PKのため、
@@ -21,7 +22,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 		INSERT INTO node_data (node_id, node_timestamp)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
-	`, nodeID, nodeTimestamp)
+	`, nodeID, receivedAt)
 	if err != nil {
 		return err
 	}
@@ -31,7 +32,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 		INSERT INTO gateway_data (gw_timestamp, node_id, node_timestamp, rssi_hex)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT DO NOTHING
-	`, receivedAt, nodeID, nodeTimestamp, rssiHex)
+	`, receivedAt, nodeID, receivedAt, rssiHex)
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 				(node_id, node_timestamp, sensor_id, value_hex, value_dec)
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT DO NOTHING
-		`, nodeID, nodeTimestamp, sensorID, valueHex, valueDec)
+		`, nodeID, receivedAt, sensorID, valueHex, valueDec)
 		if err != nil {
 			return err
 		}

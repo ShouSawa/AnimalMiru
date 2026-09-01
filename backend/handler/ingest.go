@@ -32,13 +32,13 @@ func SaveIngestRequest(req *IngestRequest) (saved int, total int) {
 	}
 
 	for _, entry := range req.SensorData {
-		nodeTimestamp := time.Unix(int64(entry.Timestamp), 0).UTC()
-
+		// node_timestampにはノード側（BeagleBone）の時刻ではなく、
+		// サーバーがこのバッチを受信した時刻(receivedAt)を使う。
+		// ノード側はRTCが無く時刻がずれることがあるため。
 		err = repository.SaveSensorData(
 			req.GatewayID,
 			receivedAt,
 			entry.NodeID,
-			nodeTimestamp,
 			entry.RssiHex,
 			entry.PayloadHex,
 		)
