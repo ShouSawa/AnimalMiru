@@ -28,8 +28,45 @@
   font-size: 14px;
 }
 
+.settingsPanel {
+  margin-top: 16px;
+  padding: 12px 20px;
+  background: #f1f8f4;
+  border: 1px solid #2d6a4f;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.settingsPanelTitle {
+  font-weight: bold;
+  font-size: 15px;
+  color: #2d6a4f;
+}
+
+.settingsField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #333;
+}
+
+.select {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  color: #222;
+  color-scheme: light;
+}
+
 .tableWrapper {
   overflow-x: auto;
+  margin-top: 16px;
 }
 
 .table {

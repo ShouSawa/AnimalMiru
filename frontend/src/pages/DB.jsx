@@ -1,9 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./DB.module.css";
+
+const SORT_ORDER_STORAGE_KEY = "animalMiru.dbSortOrder";
+
+function loadSortOrder() {
+  try {
+    const saved = localStorage.getItem(SORT_ORDER_STORAGE_KEY);
+    return saved === "asc" || saved === "desc" ? saved : "desc";
+  } catch {
+    return "desc";
+  }
+}
 
 export default function DB() {
   const [logs, setLogs] = useState([]);
   const [connected, setConnected] = useState(false);
+  // 表示順（desc: 新しい順＝デフォルト / asc: 古い順）
+  const [sortOrder, setSortOrder] = useState(loadSortOrder);
+
+  const handleSortOrderChange = (e) => {
+    const value = e.target.value;
+    setSortOrder(value);
+    try {
+      localStorage.setItem(SORT_ORDER_STORAGE_KEY, value);
+    } catch {
+      // ストレージが使えない環境では保存をあきらめる
+    }
+  };
+
+  // logsは受信順に積まれるだけなので、表示直前に毎回タイムスタンプで並び替える
+  const sortedLogs = useMemo(() => {
+    const arr = [...logs];
+    arr.sort((a, b) =>
+      sortOrder === "desc" ? b.timestamp - a.timestamp : a.timestamp - b.timestamp
+    );
+    return arr;
+  }, [logs, sortOrder]);
 
   useEffect(() => {
     // ページを開いた時点で、DBに既に保存済みの直近データを読み込む
@@ -44,6 +76,22 @@ export default function DB() {
 
       <p className={styles.count}>受信件数: {logs.length} 件</p>
 
+      {/* 設定エリア */}
+      <div className={styles.settingsPanel}>
+        <div className={styles.settingsPanelTitle}>設定エリア</div>
+        <label className={styles.settingsField}>
+          表示順
+          <select
+            className={styles.select}
+            value={sortOrder}
+            onChange={handleSortOrderChange}
+          >
+            <option value="desc">新しい順</option>
+            <option value="asc">古い順</option>
+          </select>
+        </label>
+      </div>
+
       <div className={styles.tableWrapper}>
         <table className={styles.table}>
           <thead>
@@ -55,8 +103,11 @@ export default function DB() {
             </tr>
           </thead>
           <tbody>
-            {logs.map((log, i) => (
-              <tr key={i} className={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
+            {sortedLogs.map((log, i) => (
+              <tr
+                key={`${log.node_id}-${log.timestamp}-${i}`}
+                className={i % 2 === 0 ? styles.rowEven : styles.rowOdd}
+              >
                 <td className={styles.td}>{log.node_id}</td>
                 <td className={styles.td}>{log.rssi_hex}</td>
                 <td className={styles.td}>

@@ -31,10 +31,16 @@ func SaveIngestRequest(req *IngestRequest) (saved int, total int) {
 		receivedAt = time.Now()
 	}
 
-	for _, entry := range req.SensorData {
+	for i := range req.SensorData {
+		entry := &req.SensorData[i]
+
 		// node_timestampにはノード側（BeagleBone）の時刻ではなく、
 		// サーバーがこのバッチを受信した時刻(receivedAt)を使う。
 		// ノード側はRTCが無く時刻がずれることがあるため。
+		// ここでentry.Timestampも上書きしておくことで、この後WebSocketで
+		// 配信される値もDB保存値と一致させる（REST取得分と食い違わないように）。
+		entry.Timestamp = float64(receivedAt.Unix())
+
 		err = repository.SaveSensorData(
 			req.GatewayID,
 			receivedAt,
