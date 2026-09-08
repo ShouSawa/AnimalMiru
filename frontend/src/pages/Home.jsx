@@ -19,9 +19,9 @@ export default function Home() {
       top: "20%",
       left: "80%",
       charts: [
-        { top: "6%", left: "82%" },
-        { top: "24%", left: "96%" },
         { top: "30%", left: "66%" },
+        { top: "24%", left: "96%" },
+        { top: "8%", left: "72%" },
       ],
     },
     {
@@ -30,9 +30,9 @@ export default function Home() {
       top: "80%",
       left: "80%",
       charts: [
-        { top: "74%", left: "96%" },
-        { top: "92%", left: "68%" },
         { top: "70%", left: "66%" },
+        { top: "92%", left: "72%" },
+        { top: "74%", left: "96%" },
       ],
     },
     {
@@ -41,9 +41,9 @@ export default function Home() {
       top: "80%",
       left: "20%",
       charts: [
-        { top: "74%", left: "4%" },
-        { top: "92%", left: "32%" },
         { top: "70%", left: "34%" },
+        { top: "74%", left: "4%" },
+        { top: "92%", left: "30%" },
       ],
     },
     {
@@ -52,9 +52,9 @@ export default function Home() {
       top: "20%",
       left: "20%",
       charts: [
-        { top: "6%", left: "18%" },
-        { top: "24%", left: "4%" },
         { top: "30%", left: "34%" },
+        { top: "8%", left: "28%" },
+        { top: "24%", left: "4%" },
       ],
     },
   ];
@@ -91,7 +91,7 @@ export default function Home() {
             appliedSettings.sensorVisibility[i + 1] ? (
               <SensorChart
                 key={`${node.node_id}-${i}`}
-                label={`Sensor ${i + 1}`}
+                label={`Sensor A${i + 1}`}
                 seed={Number(node.node_id) * 10 + i}
                 top={pos.top}
                 left={pos.left}
