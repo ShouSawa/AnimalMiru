@@ -88,7 +88,7 @@ export default function Home() {
         {/* 各センサ値グラフ（枠のみ・ダミーデータ表示。実データ配線は後で行う） */}
         {nodes.map((node) =>
           node.charts.map((pos, i) =>
-            appliedSettings.sensorVisibility[i + 1] ? (
+            appliedSettings.chartsVisible ? (
               <SensorChart
                 key={`${node.node_id}-${i}`}
                 label={`Sensor A${i + 1}`}

@@ -47,12 +47,6 @@
   color-scheme: light;
 }
 
-.toggleList {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .toggleRow {
   display: flex;
   align-items: center;

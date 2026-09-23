@@ -36,12 +36,20 @@
 }
 
 .yAxis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
+  flex: 0 0 5px;
+  height: 70px;
+  margin-bottom: 14px;
   font-size: 11px;
   color: #333;
-  padding-bottom: 14px;
+}
+
+.yAxis span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  text-align: right;
 }
 
 .chartArea {

@@ -34,6 +34,9 @@ function formatClockTick(date) {
 }
 
 const X_AXIS_TICK_COUNT = 5;
+const Y_MIN_VOLTAGE = 0;
+const Y_MAX_VOLTAGE = 5;
+const X_MINOR_DIVISIONS_PER_TICK = 5; // 目盛り間をさらに何分割して細かいグリッドを引くか
 
 export default function SensorChart({
   label = "Sensor",
@@ -76,15 +79,40 @@ export default function SensorChart({
     timeTicks.push(formatClockTick(tickDate));
   }
 
+  // 横線: 1V刻みでグリッドを引き、目盛り値と最低電圧(0V)の位置だけ実線にする
+  const yGridLines = [];
+  for (let v = Y_MIN_VOLTAGE; v <= Y_MAX_VOLTAGE; v++) {
+    yGridLines.push({
+      y: height - (v / Y_MAX_VOLTAGE) * height,
+      isMajor: v === Y_MIN_VOLTAGE || yTicks.includes(v),
+    });
+  }
+
+  // 縦線: 目盛り間をさらに分割して細かいグリッドを引き、目盛り(最低時間=開始時刻を含む)の位置だけ実線にする
+  const xMinorCount = (X_AXIS_TICK_COUNT - 1) * X_MINOR_DIVISIONS_PER_TICK;
+  const xGridLines = [];
+  for (let j = 0; j <= xMinorCount; j++) {
+    xGridLines.push({
+      x: (j / xMinorCount) * width,
+      isMajor: j % X_MINOR_DIVISIONS_PER_TICK === 0,
+    });
+  }
+
   return (
     <div className={styles.card} style={{ "--top": top, "--left": left }}>
       <div className={styles.corner} />
       <div className={styles.header}>{label}</div>
       <div className={styles.body}>
         <div className={styles.yAxis}>
-          {yTicks.map((t) => (
-            <span key={t}>{formatTick(t, valueUnit)}</span>
-          ))}
+          {yTicks.map((t) => {
+            const topPercent =
+              ((Y_MAX_VOLTAGE - t) / (Y_MAX_VOLTAGE - Y_MIN_VOLTAGE)) * 100;
+            return (
+              <span key={t} style={{ top: `${topPercent}%` }}>
+                {formatTick(t, valueUnit)}
+              </span>
+            );
+          })}
         </div>
         <div className={styles.chartArea}>
           <svg
@@ -92,6 +120,34 @@ export default function SensorChart({
             preserveAspectRatio="none"
             className={styles.svg}
           >
+            {yGridLines.map(({ y, isMajor }, i) => (
+              <line
+                key={`y-grid-${i}`}
+                x1={0}
+                y1={y}
+                x2={width}
+                y2={y}
+                stroke="#000"
+                strokeWidth="0.4"
+                strokeOpacity={isMajor ? 0.3 : 0.18}
+                strokeDasharray={isMajor ? undefined : "0.6,1.4"}
+                strokeLinecap="round"
+              />
+            ))}
+            {xGridLines.map(({ x, isMajor }, i) => (
+              <line
+                key={`x-grid-${i}`}
+                x1={x}
+                y1={0}
+                x2={x}
+                y2={height}
+                stroke="#000"
+                strokeWidth="0.4"
+                strokeOpacity={isMajor ? 0.3 : 0.18}
+                strokeDasharray={isMajor ? undefined : "0.6,1.4"}
+                strokeLinecap="round"
+              />
+            ))}
             <path d={path} fill="none" stroke="#2d9e4f" strokeWidth="1.2" />
           </svg>
           <div className={styles.xAxis}>

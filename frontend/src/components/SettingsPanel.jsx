@@ -27,11 +27,11 @@ export default function SettingsPanel({ onApply }) {
   const [templates, setTemplates] = useState(loadTemplates);
   const [templateName, setTemplateName] = useState("");
 
-  const toggleSensor = (i) => {
-    setDraft((prev) => ({
-      ...prev,
-      sensorVisibility: { ...prev.sensorVisibility, [i]: !prev.sensorVisibility[i] },
-    }));
+  // 表示ON/OFFは「設定を適用」を待たず即座に反映する
+  const toggleCharts = () => {
+    const next = { ...draft, chartsVisible: !draft.chartsVisible };
+    setDraft(next);
+    onApply(next);
   };
 
   const updateStartField = (field, rawValue) => {
@@ -63,8 +63,10 @@ export default function SettingsPanel({ onApply }) {
     if (idx === "") return;
     const template = templates[Number(idx)];
     if (!template) return;
-    setDraft(template.settings);
-    onApply(template.settings);
+    // 古い形式で保存されたテンプレートに項目が足りない場合はデフォルト値で補完する
+    const settings = { ...DEFAULT_SETTINGS, ...template.settings };
+    setDraft(settings);
+    onApply(settings);
   };
 
   const { year, month, day, hour, minute, second } = draft.startDateTime;
@@ -75,21 +77,17 @@ export default function SettingsPanel({ onApply }) {
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>グラフ表示</div>
-        <div className={styles.toggleList}>
-          {[1, 2, 3].map((i) => (
-            <div className={styles.toggleRow} key={i}>
-              <span>Sensor {i}</span>
-              <label className={styles.toggleSwitch}>
-                <input
-                  type="checkbox"
-                  className={styles.toggleInput}
-                  checked={draft.sensorVisibility[i]}
-                  onChange={() => toggleSensor(i)}
-                />
-                <span className={styles.toggleSlider} />
-              </label>
-            </div>
-          ))}
+        <div className={styles.toggleRow}>
+          <span>表示</span>
+          <label className={styles.toggleSwitch}>
+            <input
+              type="checkbox"
+              className={styles.toggleInput}
+              checked={draft.chartsVisible}
+              onChange={toggleCharts}
+            />
+            <span className={styles.toggleSlider} />
+          </label>
         </div>
       </div>
 
