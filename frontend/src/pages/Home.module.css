@@ -2,6 +2,19 @@
   padding: 24px;
 }
 
+@media (max-width: 600px) {
+  .page {
+    padding: 12px;
+  }
+}
+
+/* 地図端のグラフ（幅220pxを中心基準で配置）は地図の外へ約70pxはみ出すため、その分の左右余白を確保する */
+.mapScroll {
+  overflow-x: auto;
+  margin-top: 16px;
+  padding: 0 72px;
+}
+
 .mapArea {
   position: relative;
   width: 1000px;
@@ -9,7 +22,7 @@
   background: #e8f5e9; /* 薄い緑（フィールドのイメージ） */
   border: 2px solid #2d6a4f;
   border-radius: 8px;
-  margin-top: 16px;
+  margin: 0 auto;
 }
 
 .mapLabel {
@@ -44,6 +57,7 @@
 .nodeList {
   margin-top: 16px;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 

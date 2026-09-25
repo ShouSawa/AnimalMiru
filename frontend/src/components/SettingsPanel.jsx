@@ -1,17 +1,16 @@
 import { useState } from "react";
 import styles from "./SettingsPanel.module.css";
-import { TIME_RANGE_OPTIONS, VALUE_UNIT_OPTIONS, DEFAULT_SETTINGS } from "./sensorSettings";
+import {
+  TIME_RANGE_OPTIONS,
+  TIME_AXIS_MODE_OPTIONS,
+  VALUE_UNIT_OPTIONS,
+  DEFAULT_SETTINGS,
+} from "./sensorSettings";
+import ClockPicker from "./ClockPicker";
 
 const TEMPLATES_STORAGE_KEY = "animalMiru.sensorChartTemplates";
 
-const YEARS = Array.from({ length: 11 }, (_, i) => 2020 + i);
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTES_OR_SECONDS = Array.from({ length: 60 }, (_, i) => i);
-
-function daysInMonth(year, month) {
-  return new Date(year, month, 0).getDate();
-}
+const pad2 = (v) => String(v).padStart(2, "0");
 
 function loadTemplates() {
   try {
@@ -24,28 +23,38 @@ function loadTemplates() {
 
 export default function SettingsPanel({ onApply }) {
   const [draft, setDraft] = useState(DEFAULT_SETTINGS);
+  const [applied, setApplied] = useState(DEFAULT_SETTINGS);
   const [templates, setTemplates] = useState(loadTemplates);
   const [templateName, setTemplateName] = useState("");
 
-  // 表示ON/OFFは「設定を適用」を待たず即座に反映する
-  const toggleCharts = () => {
-    const next = { ...draft, chartsVisible: !draft.chartsVisible };
-    setDraft(next);
-    onApply(next);
+  const applySettings = (settings) => {
+    setApplied(settings);
+    onApply(settings);
   };
 
-  const updateStartField = (field, rawValue) => {
-    const value = Number(rawValue);
-    setDraft((prev) => {
-      const nextStart = { ...prev.startDateTime, [field]: value };
-      const maxDay = daysInMonth(nextStart.year, nextStart.month);
-      if (nextStart.day > maxDay) nextStart.day = maxDay;
-      return { ...prev, startDateTime: nextStart };
-    });
+  // 日時以外の項目は即座に反映する（未適用の日時は反映中の値のまま）
+  const applyField = (fields) => {
+    setDraft((prev) => ({ ...prev, ...fields }));
+    applySettings({ ...applied, ...fields });
+  };
+
+  const toggleCharts = () => {
+    applyField({ chartsVisible: !draft.chartsVisible });
+  };
+
+  const updateStart = (fields) => {
+    setDraft((prev) => ({ ...prev, startDateTime: { ...prev.startDateTime, ...fields } }));
+  };
+
+  // <input type="date"> の値は "YYYY-MM-DD" 形式（未入力時は空文字）
+  const handleDateChange = (e) => {
+    if (!e.target.value) return;
+    const [y, m, d] = e.target.value.split("-").map(Number);
+    updateStart({ year: y, month: m, day: d });
   };
 
   const handleApply = () => {
-    onApply(draft);
+    applySettings({ ...applied, startDateTime: draft.startDateTime });
   };
 
   const handleSaveTemplate = () => {
@@ -66,10 +75,11 @@ export default function SettingsPanel({ onApply }) {
     // 古い形式で保存されたテンプレートに項目が足りない場合はデフォルト値で補完する
     const settings = { ...DEFAULT_SETTINGS, ...template.settings };
     setDraft(settings);
-    onApply(settings);
+    applySettings(settings);
   };
 
   const { year, month, day, hour, minute, second } = draft.startDateTime;
+  const startPending = JSON.stringify(draft.startDateTime) !== JSON.stringify(applied.startDateTime);
 
   return (
     <div className={styles.panel}>
@@ -93,13 +103,11 @@ export default function SettingsPanel({ onApply }) {
 
       <div className={styles.section}>
         <label className={styles.fieldLabel}>
-          横軸（時間）の範囲
+          時間の範囲
           <select
             className={styles.select}
             value={draft.timeRangeSeconds}
-            onChange={(e) =>
-              setDraft((prev) => ({ ...prev, timeRangeSeconds: Number(e.target.value) }))
-            }
+            onChange={(e) => applyField({ timeRangeSeconds: Number(e.target.value) })}
           >
             {TIME_RANGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -111,81 +119,20 @@ export default function SettingsPanel({ onApply }) {
       </div>
 
       <div className={styles.section}>
-        <div className={styles.fieldLabel}>表示開始時間</div>
-        <div className={styles.dateRow}>
+        <label className={styles.fieldLabel}>
+          横軸の表示
           <select
             className={styles.select}
-            value={year}
-            onChange={(e) => updateStartField("year", e.target.value)}
+            value={draft.timeAxisMode}
+            onChange={(e) => applyField({ timeAxisMode: e.target.value })}
           >
-            {YEARS.map((v) => (
-              <option key={v} value={v}>
-                {v}
+            {TIME_AXIS_MODE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
-          年
-          <select
-            className={styles.select}
-            value={month}
-            onChange={(e) => updateStartField("month", e.target.value)}
-          >
-            {MONTHS.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-          月
-          <select
-            className={styles.select}
-            value={day}
-            onChange={(e) => updateStartField("day", e.target.value)}
-          >
-            {Array.from({ length: daysInMonth(year, month) }, (_, i) => i + 1).map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-          日
-          <select
-            className={styles.select}
-            value={hour}
-            onChange={(e) => updateStartField("hour", e.target.value)}
-          >
-            {HOURS.map((v) => (
-              <option key={v} value={v}>
-                {String(v).padStart(2, "0")}
-              </option>
-            ))}
-          </select>
-          時
-          <select
-            className={styles.select}
-            value={minute}
-            onChange={(e) => updateStartField("minute", e.target.value)}
-          >
-            {MINUTES_OR_SECONDS.map((v) => (
-              <option key={v} value={v}>
-                {String(v).padStart(2, "0")}
-              </option>
-            ))}
-          </select>
-          分
-          <select
-            className={styles.select}
-            value={second}
-            onChange={(e) => updateStartField("second", e.target.value)}
-          >
-            {MINUTES_OR_SECONDS.map((v) => (
-              <option key={v} value={v}>
-                {String(v).padStart(2, "0")}
-              </option>
-            ))}
-          </select>
-          秒
-        </div>
+        </label>
       </div>
 
       <div className={styles.section}>
@@ -194,7 +141,7 @@ export default function SettingsPanel({ onApply }) {
           <select
             className={styles.select}
             value={draft.valueUnit}
-            onChange={(e) => setDraft((prev) => ({ ...prev, valueUnit: e.target.value }))}
+            onChange={(e) => applyField({ valueUnit: e.target.value })}
           >
             {VALUE_UNIT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -206,8 +153,26 @@ export default function SettingsPanel({ onApply }) {
       </div>
 
       <div className={styles.section}>
-        <button className={styles.applyButton} onClick={handleApply}>
-          設定を適用
+        <div className={styles.fieldLabel}>表示開始時間</div>
+        <div className={styles.dateRow}>
+          <input
+            type="date"
+            className={styles.select}
+            value={`${year}-${pad2(month)}-${pad2(day)}`}
+            onChange={handleDateChange}
+            // アイコン以外の部分をクリックしてもカレンダーを開く
+            onClick={(e) => e.currentTarget.showPicker?.()}
+          />
+          <ClockPicker hour={hour} minute={minute} second={second} onChange={updateStart} />
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <button
+          className={`${styles.applyButton} ${startPending ? styles.applyButtonPending : ""}`}
+          onClick={handleApply}
+        >
+          選択した日時を適用
         </button>
       </div>
 

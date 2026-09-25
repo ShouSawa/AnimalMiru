@@ -1,0 +1,109 @@
+.container {
+  position: relative;
+}
+
+.trigger {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  color: #222;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  padding: 10px;
+  background: white;
+  border: 1px solid #2d6a4f;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 狭い画面では右にはみ出さないよう、時刻ボタンの右端基準で左に開く */
+@media (max-width: 600px) {
+  .popover {
+    left: auto;
+    right: 0;
+  }
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tab {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: #2d6a4f;
+  border-color: #2d6a4f;
+  color: white;
+}
+
+.face {
+  display: block;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.dial {
+  fill: #f1f8f4;
+}
+
+.hand {
+  stroke: #2d6a4f;
+  stroke-width: 2;
+}
+
+.handDot {
+  fill: #2d6a4f;
+}
+
+.centerBadge {
+  fill: white;
+  stroke: #2d6a4f;
+  stroke-width: 2;
+}
+
+.centerValue {
+  font-size: 16px;
+  font-weight: bold;
+  fill: #2d6a4f;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.label {
+  font-size: 12px;
+  fill: #333;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.labelInner {
+  font-size: 10px;
+  fill: #666;
+}
+
+.labelActive {
+  fill: white;
+}

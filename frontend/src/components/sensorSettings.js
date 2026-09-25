@@ -10,6 +10,11 @@ export const TIME_RANGE_OPTIONS = [
   { value: 600, label: "10分" },
 ];
 
+export const TIME_AXIS_MODE_OPTIONS = [
+  { value: "clock", label: "時刻" },
+  { value: "elapsed", label: "経過時間" },
+];
+
 export const VALUE_UNIT_OPTIONS = [
   { value: "voltage", label: "電圧" },
   { value: "hex", label: "hex" },
@@ -19,6 +24,7 @@ export const VALUE_UNIT_OPTIONS = [
 export const DEFAULT_SETTINGS = {
   chartsVisible: true,
   timeRangeSeconds: 40,
+  timeAxisMode: "clock",
   startDateTime: { year: 2026, month: 1, day: 22, hour: 14, minute: 9, second: 39 },
   valueUnit: "voltage",
 };

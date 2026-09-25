@@ -1,5 +1,7 @@
 .panel {
-  margin-top: 16px;
+  box-sizing: border-box;
+  max-width: 1076px;
+  margin: 16px auto 0;
   padding: 16px 20px;
   background: #f1f8f4;
   border: 1px solid #2d6a4f;
@@ -109,8 +111,8 @@
 .applyButton {
   align-self: flex-end;
   padding: 8px 20px;
-  background: #2d6a4f;
-  color: white;
+  background: #cfead9;
+  color: #2d6a4f;
   border: none;
   border-radius: 4px;
   font-size: 13px;
@@ -119,11 +121,21 @@
 }
 
 .applyButton:hover {
+  background: #b7dcc5;
+}
+
+.applyButtonPending {
+  background: #2d6a4f;
+  color: white;
+}
+
+.applyButtonPending:hover {
   background: #1a4a32;
 }
 
 .templateSection {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding-top: 16px;

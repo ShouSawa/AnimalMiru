@@ -6,6 +6,7 @@ export default function NavBar() {
       background: "#2d6a4f",
       padding: "12px 24px",
       display: "flex",
+      flexWrap: "wrap",
       gap: "24px",
       alignItems: "center",
     }}>

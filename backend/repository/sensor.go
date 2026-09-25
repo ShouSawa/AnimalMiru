@@ -62,6 +62,8 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 	}
 
 	// センサーごとに1行（複数ラウンド分をカンマ区切りでまとめて）保存する
+	// 同じバッチ内に同一ノードのデータが複数あると node_timestamp が重複するため、
+	// その場合は既存行の末尾に今回の値を連結して、データが捨てられないようにする
 	for _, sensorID := range sensorIDs {
 		if len(hexBySensor[sensorID]) == 0 {
 			continue  // このセンサーの値が1つも取れなかった場合は保存しない
@@ -74,7 +76,9 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 			INSERT INTO sensor_reading
 				(node_id, node_timestamp, sensor_id, value_hex, value_dec)
 			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT DO NOTHING
+			ON CONFLICT (node_id, node_timestamp, sensor_id) DO UPDATE SET
+				value_hex = sensor_reading.value_hex || ',' || EXCLUDED.value_hex,
+				value_dec = sensor_reading.value_dec || ',' || EXCLUDED.value_dec
 		`, nodeID, receivedAt, sensorID, valueHex, valueDec)
 		if err != nil {
 			return err

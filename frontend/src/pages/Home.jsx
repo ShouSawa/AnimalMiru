@@ -65,7 +65,8 @@ export default function Home() {
 
       <SettingsPanel onApply={setAppliedSettings} />
 
-      {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー */}
+      {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
+      <div className={styles.mapScroll}>
       <div className={styles.mapArea}>
 
         {/* 仮ラベル（Leaflet導入後に削除） */}
@@ -92,16 +93,17 @@ export default function Home() {
               <SensorChart
                 key={`${node.node_id}-${i}`}
                 label={`Sensor A${i + 1}`}
-                seed={Number(node.node_id) * 10 + i}
                 top={pos.top}
                 left={pos.left}
                 valueUnit={appliedSettings.valueUnit}
                 timeRangeSeconds={appliedSettings.timeRangeSeconds}
+                timeAxisMode={appliedSettings.timeAxisMode}
                 startDateTime={startDateTime}
               />
             ) : null
           )
         )}
+      </div>
       </div>
 
       {/* ノード一覧 */}

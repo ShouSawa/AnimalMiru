@@ -2,8 +2,15 @@
   padding: 24px;
 }
 
+@media (max-width: 600px) {
+  .page {
+    padding: 12px;
+  }
+}
+
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
