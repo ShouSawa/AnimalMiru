@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./SettingsPanel.module.css";
 import {
   TIME_RANGE_OPTIONS,
@@ -7,6 +7,7 @@ import {
   DEFAULT_SETTINGS,
 } from "./sensorSettings";
 import ClockPicker from "./ClockPicker";
+import CalendarPicker from "./CalendarPicker";
 
 const TEMPLATES_STORAGE_KEY = "animalMiru.sensorChartTemplates";
 
@@ -26,6 +27,33 @@ export default function SettingsPanel({ onApply }) {
   const [applied, setApplied] = useState(DEFAULT_SETTINGS);
   const [templates, setTemplates] = useState(loadTemplates);
   const [templateName, setTemplateName] = useState("");
+  // カレンダー・時計で色付けする、データが存在する日付と時刻（選択中の日の0時からの秒数）
+  const [dataDates, setDataDates] = useState([]);
+  const [dataSeconds, setDataSeconds] = useState([]);
+
+  const { year, month, day, hour, minute, second } = draft.startDateTime;
+  const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
+
+  useEffect(() => {
+    fetch("/api/sensor-data/availability")
+      .then((res) => res.json())
+      .then((data) => setDataDates(data.dates ?? []))
+      .catch((err) => console.error("データ日付一覧取得失敗:", err));
+  }, []);
+
+  useEffect(() => {
+    // 日付を続けて切り替えたときに、古い日付の応答で上書きしないようにする
+    let ignore = false;
+    fetch(`/api/sensor-data/availability?date=${dateKey}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!ignore) setDataSeconds(data.seconds ?? []);
+      })
+      .catch((err) => console.error("データ時刻一覧取得失敗:", err));
+    return () => {
+      ignore = true;
+    };
+  }, [dateKey]);
 
   const applySettings = (settings) => {
     setApplied(settings);
@@ -44,13 +72,6 @@ export default function SettingsPanel({ onApply }) {
 
   const updateStart = (fields) => {
     setDraft((prev) => ({ ...prev, startDateTime: { ...prev.startDateTime, ...fields } }));
-  };
-
-  // <input type="date"> の値は "YYYY-MM-DD" 形式（未入力時は空文字）
-  const handleDateChange = (e) => {
-    if (!e.target.value) return;
-    const [y, m, d] = e.target.value.split("-").map(Number);
-    updateStart({ year: y, month: m, day: d });
   };
 
   const handleApply = () => {
@@ -78,7 +99,6 @@ export default function SettingsPanel({ onApply }) {
     applySettings(settings);
   };
 
-  const { year, month, day, hour, minute, second } = draft.startDateTime;
   const startPending = JSON.stringify(draft.startDateTime) !== JSON.stringify(applied.startDateTime);
 
   return (
@@ -155,15 +175,20 @@ export default function SettingsPanel({ onApply }) {
       <div className={styles.section}>
         <div className={styles.fieldLabel}>表示開始時間</div>
         <div className={styles.dateRow}>
-          <input
-            type="date"
-            className={styles.select}
-            value={`${year}-${pad2(month)}-${pad2(day)}`}
-            onChange={handleDateChange}
-            // アイコン以外の部分をクリックしてもカレンダーを開く
-            onClick={(e) => e.currentTarget.showPicker?.()}
+          <CalendarPicker
+            year={year}
+            month={month}
+            day={day}
+            dataDates={dataDates}
+            onChange={updateStart}
           />
-          <ClockPicker hour={hour} minute={minute} second={second} onChange={updateStart} />
+          <ClockPicker
+            hour={hour}
+            minute={minute}
+            second={second}
+            dataSeconds={dataSeconds}
+            onChange={updateStart}
+          />
         </div>
       </div>
 

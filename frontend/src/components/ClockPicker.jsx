@@ -35,7 +35,55 @@ function handPosition(mode, value) {
   return polar(value, 60, OUTER_RADIUS);
 }
 
-export default function ClockPicker({ hour, minute, second, onChange }) {
+// データがある時刻（0時からの秒数の一覧）のうち、表示中のモードで色付けする値（時/分/秒）を求める
+function unitsWithData(mode, dataSeconds, hour, minute) {
+  if (mode === "hour") return new Set(dataSeconds.map((s) => Math.floor(s / 3600)));
+  if (mode === "minute") {
+    return new Set(
+      dataSeconds
+        .filter((s) => Math.floor(s / 3600) === hour)
+        .map((s) => Math.floor((s % 3600) / 60))
+    );
+  }
+  const minuteStart = hour * 3600 + minute * 60;
+  return new Set(
+    dataSeconds.filter((s) => s >= minuteStart && s < minuteStart + 60).map((s) => s - minuteStart)
+  );
+}
+
+// 分・秒の値(0〜59)を、連続している範囲ごとの [開始, 個数] にまとめる（59→0 の境目もつなげる）
+function buildRuns(units) {
+  const runs = [];
+  for (let v = 0; v < 60; v++) {
+    if (!units.has(v)) continue;
+    const last = runs[runs.length - 1];
+    if (last && last[0] + last[1] === v) last[1]++;
+    else runs.push([v, 1]);
+  }
+  if (runs.length > 1 && runs[0][0] === 0) {
+    const last = runs[runs.length - 1];
+    if (last[0] + last[1] === 60) {
+      last[1] += runs[0][1];
+      runs.shift();
+    }
+  }
+  return runs;
+}
+
+// 連続範囲を文字盤外周の円弧として描くSVGパス（各値の前後0.5目盛り分まで塗る）
+function arcPath(start, count) {
+  if (count >= 60) {
+    const top = polar(0, 60, OUTER_RADIUS);
+    const bottom = polar(30, 60, OUTER_RADIUS);
+    return `M${top.x},${top.y} A${OUTER_RADIUS},${OUTER_RADIUS} 0 1 1 ${bottom.x},${bottom.y} A${OUTER_RADIUS},${OUTER_RADIUS} 0 1 1 ${top.x},${top.y}`;
+  }
+  const from = polar(start - 0.5, 60, OUTER_RADIUS);
+  const to = polar(start + count - 0.5, 60, OUTER_RADIUS);
+  // SVGの円弧コマンド: 半周を超えるときは大きい方の弧(large-arc=1)、時計回り(sweep=1)で描く
+  return `M${from.x},${from.y} A${OUTER_RADIUS},${OUTER_RADIUS} 0 ${count > 30 ? 1 : 0} 1 ${to.x},${to.y}`;
+}
+
+export default function ClockPicker({ hour, minute, second, dataSeconds = [], onChange }) {
   const [open, setOpen] = useState(false);
   const [modeIndex, setModeIndex] = useState(0);
   const [dragValue, setDragValue] = useState(null);
@@ -93,6 +141,8 @@ export default function ClockPicker({ hour, minute, second, onChange }) {
   };
 
   const hand = handPosition(mode, current);
+  const dataUnits = unitsWithData(mode, dataSeconds, hour, minute);
+  const labels = buildLabels(mode);
 
   return (
     <div className={styles.container} ref={containerRef}>
@@ -124,6 +174,21 @@ export default function ClockPicker({ hour, minute, second, onChange }) {
             onPointerUp={handlePointerUp}
           >
             <circle cx={CENTER} cy={CENTER} r={CENTER - 4} className={styles.dial} />
+            {mode === "hour"
+              ? labels
+                  .filter((l) => dataUnits.has(l.value))
+                  .map((l) => (
+                    <circle
+                      key={`data-${l.value}`}
+                      cx={l.x}
+                      cy={l.y}
+                      r={l.value < 12 ? 12 : 10}
+                      className={styles.dataMark}
+                    />
+                  ))
+              : buildRuns(dataUnits).map(([start, count]) => (
+                  <path key={`data-${start}`} d={arcPath(start, count)} className={styles.dataArc} />
+                ))}
             <line x1={CENTER} y1={CENTER} x2={hand.x} y2={hand.y} className={styles.hand} />
             {mode === "hour" ? (
               <circle cx={CENTER} cy={CENTER} r={3} className={styles.handDot} />
@@ -136,7 +201,7 @@ export default function ClockPicker({ hour, minute, second, onChange }) {
               </>
             )}
             <circle cx={hand.x} cy={hand.y} r={13} className={styles.handDot} />
-            {buildLabels(mode).map((l) => (
+            {labels.map((l) => (
               <text
                 key={l.value}
                 x={l.x}

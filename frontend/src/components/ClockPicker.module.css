@@ -67,6 +67,17 @@
   fill: #f1f8f4;
 }
 
+/* データがある時（数字の背景の丸）と分・秒（外周の帯） */
+.dataMark {
+  fill: #cfe5fb;
+}
+
+.dataArc {
+  fill: none;
+  stroke: #cfe5fb;
+  stroke-width: 24;
+}
+
 .hand {
   stroke: #2d6a4f;
   stroke-width: 2;

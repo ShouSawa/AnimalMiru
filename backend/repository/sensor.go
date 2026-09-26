@@ -88,6 +88,31 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 	return nil  // 全て成功
 }
 
+// GetDataDates はデータが存在する日付（日本時間、"YYYY-MM-DD"）を古い順に返す
+func GetDataDates() ([]string, error) {
+	dates := []string{}
+	err := db.DB.Select(&dates, `
+		SELECT DISTINCT to_char(node_timestamp AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD') AS d
+		FROM node_data
+		ORDER BY d
+	`)
+	return dates, err
+}
+
+// GetDataSecondsOfDay は指定日（dayStartから24時間）にデータが存在する時刻を、
+// 日本時間の0時からの秒数（0〜86399）で古い順に返す
+func GetDataSecondsOfDay(dayStart time.Time) ([]int, error) {
+	seconds := []int{}
+	// 日本時間の時刻部分(time型)を秒数に変換し、小数点以下(ミリ秒)は切り捨てる
+	err := db.DB.Select(&seconds, `
+		SELECT DISTINCT floor(extract(epoch FROM (node_timestamp AT TIME ZONE 'Asia/Tokyo')::time))::int AS s
+		FROM node_data
+		WHERE node_timestamp >= $1 AND node_timestamp < $2
+		ORDER BY s
+	`, dayStart, dayStart.AddDate(0, 0, 1))
+	return seconds, err
+}
+
 // SensorLogRow はDB画面の一覧表示用に組み立てた1ノード分のデータ
 type SensorLogRow struct {
 	NodeID     string `json:"node_id"`
