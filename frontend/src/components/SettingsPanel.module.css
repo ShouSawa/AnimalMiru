@@ -12,6 +12,12 @@
   gap: 24px;
 }
 
+/* リアルタイムモード中に無効化した入力（カレンダー・時計のボタンも含む） */
+.panel :disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .panelTitle {
   width: 100%;
   font-weight: bold;

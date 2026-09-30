@@ -11,6 +11,21 @@
   z-index: 5;
 }
 
+/* マウスを乗せたときの拡大表示（画面基準で配置し、左上を起点に拡大する） */
+.zoom {
+  position: fixed;
+  width: 220px;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  z-index: 2000;
+  transform: scale(var(--zoom-scale));
+  transform-origin: 0 0;
+  /* マウスイベントを下の元のグラフに通し、元のグラフから外れたら閉じられるようにする */
+  pointer-events: none;
+}
+
 .corner {
   position: absolute;
   top: 0;

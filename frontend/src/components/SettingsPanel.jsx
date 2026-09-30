@@ -122,6 +122,22 @@ export default function SettingsPanel({ onApply }) {
       </div>
 
       <div className={styles.section}>
+        <div className={styles.sectionTitle}>リアルタイムモード</div>
+        <div className={styles.toggleRow}>
+          <span>{draft.realtime ? "ON" : "OFF"}</span>
+          <label className={styles.toggleSwitch}>
+            <input
+              type="checkbox"
+              className={styles.toggleInput}
+              checked={draft.realtime}
+              onChange={() => applyField({ realtime: !draft.realtime })}
+            />
+            <span className={styles.toggleSlider} />
+          </label>
+        </div>
+      </div>
+
+      <div className={styles.section}>
         <label className={styles.fieldLabel}>
           時間の範囲
           <select
@@ -180,6 +196,7 @@ export default function SettingsPanel({ onApply }) {
             month={month}
             day={day}
             dataDates={dataDates}
+            disabled={draft.realtime}
             onChange={updateStart}
           />
           <ClockPicker
@@ -187,6 +204,7 @@ export default function SettingsPanel({ onApply }) {
             minute={minute}
             second={second}
             dataSeconds={dataSeconds}
+            disabled={draft.realtime}
             onChange={updateStart}
           />
         </div>
@@ -195,6 +213,7 @@ export default function SettingsPanel({ onApply }) {
       <div className={styles.section}>
         <button
           className={`${styles.applyButton} ${startPending ? styles.applyButtonPending : ""}`}
+          disabled={draft.realtime}
           onClick={handleApply}
         >
           選択した日時を適用
@@ -207,12 +226,18 @@ export default function SettingsPanel({ onApply }) {
           className={styles.templateInput}
           placeholder="テンプレ名"
           value={templateName}
+          disabled={draft.realtime}
           onChange={(e) => setTemplateName(e.target.value)}
         />
-        <button className={styles.saveButton} onClick={handleSaveTemplate}>
+        <button className={styles.saveButton} disabled={draft.realtime} onClick={handleSaveTemplate}>
           テンプレ保存
         </button>
-        <select className={styles.select} defaultValue="" onChange={handleLoadTemplate}>
+        <select
+          className={styles.select}
+          defaultValue=""
+          disabled={draft.realtime}
+          onChange={handleLoadTemplate}
+        >
           <option value="">テンプレを選択…</option>
           {templates.map((t, i) => (
             <option key={i} value={i}>

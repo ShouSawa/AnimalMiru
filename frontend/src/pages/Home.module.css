@@ -54,8 +54,25 @@
   z-index: 10;
 }
 
+.analysisArea {
+  box-sizing: border-box;
+  max-width: 1076px;
+  margin: 16px auto 0;
+  padding: 16px 20px;
+  background: #f1f8f4;
+  border: 1px solid #2d6a4f;
+  border-radius: 8px;
+  color: #222;
+}
+
+.analysisTitle {
+  font-weight: bold;
+  font-size: 15px;
+  color: #2d6a4f;
+}
+
 .nodeList {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -63,7 +80,7 @@
 
 .nodeCard {
   padding: 12px 16px;
-  background: #f1f8f4;
+  background: white;
   border: 1px solid #2d6a4f;
   border-radius: 8px;
   min-width: 120px;
@@ -76,4 +93,32 @@
 .nodeCardId {
   font-size: 13px;
   color: #555;
+}
+
+.sensorCards {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sensorCard {
+  padding: 6px 10px;
+  background: #f1f8f4;
+  border: 1px solid #cfead9;
+  border-radius: 6px;
+  min-width: 96px;
+  font-size: 13px;
+}
+
+.sensorCardTitle {
+  font-weight: bold;
+  color: #2d6a4f;
+  margin-bottom: 2px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
 }

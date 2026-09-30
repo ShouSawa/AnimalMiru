@@ -83,7 +83,7 @@ function arcPath(start, count) {
   return `M${from.x},${from.y} A${OUTER_RADIUS},${OUTER_RADIUS} 0 ${count > 30 ? 1 : 0} 1 ${to.x},${to.y}`;
 }
 
-export default function ClockPicker({ hour, minute, second, dataSeconds = [], onChange }) {
+export default function ClockPicker({ hour, minute, second, dataSeconds = [], disabled = false, onChange }) {
   const [open, setOpen] = useState(false);
   const [modeIndex, setModeIndex] = useState(0);
   const [dragValue, setDragValue] = useState(null);
@@ -146,7 +146,7 @@ export default function ClockPicker({ hour, minute, second, dataSeconds = [], on
 
   return (
     <div className={styles.container} ref={containerRef}>
-      <button type="button" className={styles.trigger} onClick={openPicker}>
+      <button type="button" className={styles.trigger} disabled={disabled} onClick={openPicker}>
         {pad2(hour)}:{pad2(minute)}:{pad2(second)}
       </button>
       {open && (

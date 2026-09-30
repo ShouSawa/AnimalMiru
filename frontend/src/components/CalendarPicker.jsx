@@ -22,7 +22,7 @@ function buildDayCells(year, month) {
   });
 }
 
-export default function CalendarPicker({ year, month, day, dataDates = [], onChange }) {
+export default function CalendarPicker({ year, month, day, dataDates = [], disabled = false, onChange }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState("days"); // "days": 日の選択 / "years": 年月の選択
   const [viewYear, setViewYear] = useState(year);
@@ -83,7 +83,7 @@ export default function CalendarPicker({ year, month, day, dataDates = [], onCha
 
   return (
     <div className={styles.container} ref={containerRef}>
-      <button type="button" className={styles.trigger} onClick={togglePicker}>
+      <button type="button" className={styles.trigger} disabled={disabled} onClick={togglePicker}>
         {year}/{pad2(month)}/{pad2(day)} ({weekdayLabel})
       </button>
       {open && (

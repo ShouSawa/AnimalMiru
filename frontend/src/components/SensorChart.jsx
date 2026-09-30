@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import styles from "./SensorChart.module.css";
 
 // センサ値（0V〜5V基準）を指定の単位の目盛りラベルに変換する
@@ -23,11 +24,15 @@ function formatClockTick(date) {
 
 // 横幅をこの数の区間に分け、区間ごとに最小値と最大値だけを描く（点が多いときの描画負荷を抑える）
 const DECIMATE_BUCKETS = 400;
+const ZOOM_DECIMATE_BUCKETS = 1500; // 拡大表示では横幅が広い分、細かく描く
+// マウスを乗せたときの拡大倍率と、拡大表示を画面端から離す余白(px)
+const ZOOM_SCALE = 2.5;
+const ZOOM_MARGIN = 8;
 // 前の点からこの秒数以上あいたら、データが途切れているとみなして線をつながない
 const GAP_SECONDS = 3;
 
 // [[UNIX秒, 値(0〜255)], ...] を、途切れ箇所で分割したSVGのpath文字列に変換する
-function buildPath(points, startSec, rangeSec, width, height) {
+function buildPath(points, startSec, rangeSec, width, height, buckets) {
   const segments = [];
   let bucket = null;
   let prevT = null;
@@ -48,7 +53,7 @@ function buildPath(points, startSec, rangeSec, width, height) {
       segments.push([]);
     }
     prevT = t;
-    const idx = Math.floor(((t - startSec) / rangeSec) * DECIMATE_BUCKETS);
+    const idx = Math.floor(((t - startSec) / rangeSec) * buckets);
     if (bucket && bucket.idx !== idx) flush();
     if (!bucket) {
       bucket = { idx, x: ((t - startSec) / rangeSec) * width, min: v, max: v, minI: i, maxI: i };
@@ -84,7 +89,29 @@ export default function SensorChart({
 }) {
   const width = 200;
   const height = 70;
-  const path = buildPath(points, startDateTime.getTime() / 1000, timeRangeSeconds, width, height);
+  const startSec = startDateTime.getTime() / 1000;
+  // 拡大表示の左上座標（画面基準）。マウスが乗っていない間は null
+  const [zoomPos, setZoomPos] = useState(null);
+
+  // スクロールすると拡大表示が元のグラフからずれるので閉じる（地図エリア内の横スクロールも拾うため capture で登録）
+  useEffect(() => {
+    if (!zoomPos) return;
+    const close = () => setZoomPos(null);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [zoomPos]);
+
+  // 元のグラフの中心を基準に拡大し、画面からはみ出す場合は内側へずらす
+  const handleMouseEnter = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const zoomWidth = rect.width * ZOOM_SCALE;
+    const zoomHeight = rect.height * ZOOM_SCALE;
+    const clamp = (v, max) => Math.min(Math.max(v, ZOOM_MARGIN), max - ZOOM_MARGIN);
+    setZoomPos({
+      left: clamp(rect.left + rect.width / 2 - zoomWidth / 2, window.innerWidth - zoomWidth),
+      top: clamp(rect.top + rect.height / 2 - zoomHeight / 2, window.innerHeight - zoomHeight),
+    });
+  };
 
   const timeTicks = [];
   for (let i = 0; i < X_AXIS_TICK_COUNT; i++) {
@@ -114,8 +141,9 @@ export default function SensorChart({
     });
   }
 
-  return (
-    <div className={styles.card} style={{ "--top": top, "--left": left }}>
+  // 通常表示と拡大表示で共通の中身。拡大表示は全体を ZOOM_SCALE 倍するので、線が太くなりすぎないよう細くする
+  const renderContent = (buckets, lineWidth) => (
+    <>
       <div className={styles.corner} />
       <div className={styles.header}>{label}</div>
       <div className={styles.body}>
@@ -164,7 +192,14 @@ export default function SensorChart({
                 strokeLinecap="round"
               />
             ))}
-            <path d={path} fill="none" stroke="#2d9e4f" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d={buildPath(points, startSec, timeRangeSeconds, width, height, buckets)}
+              fill="none"
+              stroke="#2d9e4f"
+              strokeWidth={lineWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <div className={styles.xAxis}>
             {timeTicks.map((t, i) => (
@@ -173,6 +208,28 @@ export default function SensorChart({
           </div>
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      <div
+        className={styles.card}
+        style={{ "--top": top, "--left": left }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setZoomPos(null)}
+      >
+        {renderContent(DECIMATE_BUCKETS, 1.2)}
+      </div>
+      {/* .card は transform を持ち position: fixed の基準になってしまうため、拡大表示は兄弟要素として置く */}
+      {zoomPos && (
+        <div
+          className={styles.zoom}
+          style={{ left: zoomPos.left, top: zoomPos.top, "--zoom-scale": ZOOM_SCALE }}
+        >
+          {renderContent(ZOOM_DECIMATE_BUCKETS, 0.6)}
+        </div>
+      )}
+    </>
   );
 }

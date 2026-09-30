@@ -23,6 +23,7 @@ export const VALUE_UNIT_OPTIONS = [
 
 export const DEFAULT_SETTINGS = {
   chartsVisible: true,
+  realtime: false,
   timeRangeSeconds: 40,
   timeAxisMode: "clock",
   startDateTime: { year: 2026, month: 1, day: 22, hour: 14, minute: 9, second: 39 },
