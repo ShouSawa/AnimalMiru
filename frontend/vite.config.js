@@ -38,6 +38,26 @@ function mockApi() {
         res.end(JSON.stringify(result))
       })
 
+      // Goの ServeSeries と同じ形で、[from, to) の値をノード→センサ→[[UNIX秒, 値], ...] で返す
+      server.middlewares.use('/api/sensor-data/series', (req, res) => {
+        const params = new URL(req.url, 'http://localhost').searchParams
+        const from = Number(params.get('from'))
+        const to = Number(params.get('to'))
+        const series = {}
+        for (const r of loadMockRows()) {
+          const base = new Date(r.node_timestamp).getTime() / 1000
+          if (base < from || base >= to) continue
+          series[r.node_id] ??= {}
+          for (const [sensorId, hex] of Object.entries(r.readings ?? {})) {
+            const points = (series[r.node_id][sensorId] ??= [])
+            // i番目の値は受信時刻 + i×0.1ms に測定されたものとして扱う
+            hex.split(',').forEach((h, i) => points.push([base + i * 0.0001, parseInt(h, 16)]))
+          }
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ series }))
+      })
+
       // Vite内蔵のサーバーに、/api/sensor-data/recent を受け付ける処理を追加する
       server.middlewares.use('/api/sensor-data/recent', (req, res) => {
         const rows = loadMockRows()

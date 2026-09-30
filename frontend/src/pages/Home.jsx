@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./Home.module.css";
 import SensorChart from "../components/SensorChart";
 import SettingsPanel from "../components/SettingsPanel";
@@ -9,6 +9,24 @@ export default function Home() {
   const [appliedSettings, setAppliedSettings] = useState(DEFAULT_SETTINGS);
   const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
   const startDateTime = new Date(year, month - 1, day, hour, minute, second);
+  const fromSec = startDateTime.getTime() / 1000;
+  const toSec = fromSec + appliedSettings.timeRangeSeconds;
+  // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
+  const [series, setSeries] = useState({});
+
+  useEffect(() => {
+    // 期間を素早く切り替えたとき、古いリクエストの結果で上書きしないようにする
+    let ignore = false;
+    fetch(`/api/sensor-data/series?from=${fromSec}&to=${toSec}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!ignore) setSeries(data.series ?? {});
+      })
+      .catch((err) => console.error("グラフ用データ取得失敗:", err));
+    return () => {
+      ignore = true;
+    };
+  }, [fromSec, toSec]);
 
   // テストフィールドの仮ノード座標（後から実測値に差し替え可能）
   // charts: 各ノードに付いている3つのセンサのグラフ表示位置（仮）
@@ -86,7 +104,7 @@ export default function Home() {
           </div>
         ))}
 
-        {/* 各センサ値グラフ（枠のみ・ダミーデータ表示。実データ配線は後で行う） */}
+        {/* 各センサ値グラフ */}
         {nodes.map((node) =>
           node.charts.map((pos, i) =>
             appliedSettings.chartsVisible ? (
@@ -95,6 +113,7 @@ export default function Home() {
                 label={`Sensor A${i + 1}`}
                 top={pos.top}
                 left={pos.left}
+                points={series[node.node_id]?.[`A${i + 1}`]}
                 valueUnit={appliedSettings.valueUnit}
                 timeRangeSeconds={appliedSettings.timeRangeSeconds}
                 timeAxisMode={appliedSettings.timeAxisMode}

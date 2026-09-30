@@ -21,6 +21,51 @@ function formatClockTick(date) {
   return `${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
+// 横幅をこの数の区間に分け、区間ごとに最小値と最大値だけを描く（点が多いときの描画負荷を抑える）
+const DECIMATE_BUCKETS = 400;
+// 前の点からこの秒数以上あいたら、データが途切れているとみなして線をつながない
+const GAP_SECONDS = 3;
+
+// [[UNIX秒, 値(0〜255)], ...] を、途切れ箇所で分割したSVGのpath文字列に変換する
+function buildPath(points, startSec, rangeSec, width, height) {
+  const segments = [];
+  let bucket = null;
+  let prevT = null;
+  const flush = () => {
+    if (!bucket) return;
+    // 区間内の最小値・最大値を、現れた順に並べて波形の形を保つ
+    const pair = bucket.minI < bucket.maxI ? [bucket.min, bucket.max] : [bucket.max, bucket.min];
+    const x = bucket.x;
+    for (const v of bucket.min === bucket.max ? [bucket.min] : pair) {
+      segments[segments.length - 1].push(`${x.toFixed(1)},${(height - (v / 255) * height).toFixed(1)}`);
+    }
+    bucket = null;
+  };
+
+  points.forEach(([t, v], i) => {
+    if (prevT === null || t - prevT >= GAP_SECONDS) {
+      flush();
+      segments.push([]);
+    }
+    prevT = t;
+    const idx = Math.floor(((t - startSec) / rangeSec) * DECIMATE_BUCKETS);
+    if (bucket && bucket.idx !== idx) flush();
+    if (!bucket) {
+      bucket = { idx, x: ((t - startSec) / rangeSec) * width, min: v, max: v, minI: i, maxI: i };
+    } else {
+      if (v < bucket.min) Object.assign(bucket, { min: v, minI: i });
+      if (v > bucket.max) Object.assign(bucket, { max: v, maxI: i });
+    }
+  });
+  flush();
+
+  return segments
+    .filter((s) => s.length > 0)
+    // 1点しかない区間は見えないので、同じ位置に短い横線を引いて点として表示する
+    .map((s) => (s.length === 1 ? `M${s[0]} h0.8` : `M${s.join(" L")}`))
+    .join(" ");
+}
+
 const X_AXIS_TICK_COUNT = 5;
 const Y_MIN_VOLTAGE = 0;
 const Y_MAX_VOLTAGE = 5;
@@ -30,6 +75,7 @@ export default function SensorChart({
   label = "Sensor",
   top,
   left,
+  points = [], // [[UNIX秒, 値(0〜255)], ...]（時刻の昇順）
   valueUnit = "voltage", // "voltage" | "hex" | "decimal"
   yTicks = [5, 3, 1],
   timeRangeSeconds = 40, // 横軸の表示範囲（設定エリアから変更可能）
@@ -38,6 +84,7 @@ export default function SensorChart({
 }) {
   const width = 200;
   const height = 70;
+  const path = buildPath(points, startDateTime.getTime() / 1000, timeRangeSeconds, width, height);
 
   const timeTicks = [];
   for (let i = 0; i < X_AXIS_TICK_COUNT; i++) {
@@ -117,6 +164,7 @@ export default function SensorChart({
                 strokeLinecap="round"
               />
             ))}
+            <path d={path} fill="none" stroke="#2d9e4f" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <div className={styles.xAxis}>
             {timeTicks.map((t, i) => (

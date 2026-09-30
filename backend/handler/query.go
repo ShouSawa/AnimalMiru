@@ -47,6 +47,29 @@ func ServeAvailability() http.HandlerFunc {
 	}
 }
 
+// ServeSeries は /api/sensor-data/series?from=UNIX秒&to=UNIX秒 のHTTPハンドラを返す。
+// ホーム画面のセンサグラフに、指定期間の値を描くために使う
+func ServeSeries() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		from, errFrom := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
+		to, errTo := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
+		if errFrom != nil || errTo != nil || to <= from {
+			http.Error(w, "invalid from/to", http.StatusBadRequest)
+			return
+		}
+
+		series, err := repository.GetSeries(time.Unix(from, 0), time.Unix(to, 0))
+		if err != nil {
+			log.Printf("グラフ用データ取得失敗: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"series": series})
+	}
+}
+
 // ServeRecentLogs は /api/sensor-data/recent のHTTPハンドラを返す。
 // DB画面を開いた直後に、これまでDBに保存済みのデータを表示するために使う
 // （WebSocketはこの後の新着データのみを配信するため）

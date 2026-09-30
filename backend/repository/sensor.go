@@ -121,6 +121,46 @@ type SensorLogRow struct {
 	PayloadHex string `json:"payload_hex"`
 }
 
+// sampleIntervalSec は1行に並んだ値どうしの測定間隔（約0.1ms）
+const sampleIntervalSec = 0.0001
+
+// GetSeries は [from, to) の sensor_reading を取得し、ノード→センサ→[[UNIX秒, 値], ...] の形で返す。
+// 1行のi番目の値には node_timestamp + i×0.1ms の時刻を割り当てる
+func GetSeries(from, to time.Time) (map[string]map[string][][2]float64, error) {
+	var rows []struct {
+		NodeID        string    `db:"node_id"`
+		NodeTimestamp time.Time `db:"node_timestamp"`
+		SensorID      string    `db:"sensor_id"`
+		ValueDec      string    `db:"value_dec"`
+	}
+	err := db.DB.Select(&rows, `
+		SELECT node_id, node_timestamp, sensor_id, value_dec
+		FROM sensor_reading
+		WHERE node_timestamp >= $1 AND node_timestamp < $2
+		ORDER BY node_timestamp
+	`, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	series := make(map[string]map[string][][2]float64)
+	for _, r := range rows {
+		if series[r.NodeID] == nil {
+			series[r.NodeID] = make(map[string][][2]float64)
+		}
+		base := float64(r.NodeTimestamp.UnixMicro()) / 1e6
+		for i, s := range strings.Split(r.ValueDec, ",") {
+			v, err := strconv.Atoi(strings.TrimSpace(s))
+			if err != nil {
+				continue
+			}
+			t := base + float64(i)*sampleIntervalSec
+			series[r.NodeID][r.SensorID] = append(series[r.NodeID][r.SensorID], [2]float64{t, float64(v)})
+		}
+	}
+	return series, nil
+}
+
 // GetRecentLogs はgateway_data・sensor_readingから直近limit件を取得し、
 // フロントの一覧表示用に組み立てて返す（新しい順）
 func GetRecentLogs(limit int) ([]SensorLogRow, error) {
