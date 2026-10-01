@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
@@ -44,12 +46,71 @@ function mockRowsInRange(from, to) {
   return result
 }
 
+// テストデータの1行を、Goの sensor_data と同じ形（payload_hex は A1,A2,A3 の順に3値ずつ並べる）に変換する
+// 流さないセンサの値は空文字にして、フロント側で読み飛ばされるようにする
+function toSensorEntry({ base, r, dropSensor }) {
+  const columns = ['A1', 'A2', 'A3'].map((id) =>
+    id === dropSensor ? [] : (r.readings?.[id] ?? '').split(',')
+  )
+  const rounds = Math.max(...columns.map((c) => c.length))
+  const values = []
+  for (let i = 0; i < rounds; i++) columns.forEach((c) => values.push(c[i] ?? ''))
+  return { node_id: r.node_id, rssi_hex: r.rssi_hex, timestamp: base, payload_hex: values.join(',') }
+}
+
+// テキストを1つのWebSocketフレームにする（サーバー→ブラウザ方向はマスク不要）
+function wsTextFrame(text) {
+  const payload = Buffer.from(text)
+  const len = payload.length
+  let header
+  if (len < 126) {
+    header = Buffer.from([0x81, len])
+  } else if (len < 65536) {
+    header = Buffer.from([0x81, 126, len >> 8, len & 255])
+  } else {
+    header = Buffer.alloc(10)
+    header[0] = 0x81
+    header[1] = 127
+    header.writeBigUInt64BE(BigInt(len), 2)
+  }
+  return Buffer.concat([header, payload])
+}
+
 // npm run dev のときだけ、/api をGoサーバーの代わりに mock/sensor_data.json から返す
 function mockApi() {
   return {
     name: 'mock-api',
     apply: 'serve', // 開発サーバーでのみ有効（npm run build の成果物には含まれない）
     configureServer(server) {
+      // Goの /ws/realtime と同じ形で、テストデータを1秒ごとに配信する
+      // （ハンドシェイクとテキスト送信だけを最小限に実装。ViteのHMR用の接続は別プロトコルなので影響しない）
+      server.httpServer?.on('upgrade', (req, socket) => {
+        if (!req.url.startsWith('/ws/realtime')) return
+        // RFC 6455 で決められた固定文字列を連結したSHA-1を返すと、接続が確立する
+        const accept = crypto
+          .createHash('sha1')
+          .update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+          .digest('base64')
+        socket.write(
+          `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`
+        )
+        let sentUntil = Date.now() / 1000
+        const id = setInterval(() => {
+          const now = Date.now() / 1000
+          const sensorData = mockRowsInRange(sentUntil, now).map(toSensorEntry)
+          sentUntil = now
+          if (sensorData.length) {
+            socket.write(wsTextFrame(JSON.stringify({ gateway_id: 'mock', sensor_data: sensorData })))
+          }
+        }, 1000)
+        // ブラウザから切断フレーム(opcode 8)が来たら閉じる
+        socket.on('data', (buf) => {
+          if ((buf[0] & 0x0f) === 0x8) socket.end()
+        })
+        socket.on('close', () => clearInterval(id))
+        socket.on('error', () => clearInterval(id))
+      })
+
       // Goの ServeAvailability と同じ形で、データがある日付・時刻の一覧を返す
       server.middlewares.use('/api/sensor-data/availability', (req, res) => {
         const date = new URL(req.url, 'http://localhost').searchParams.get('date')

@@ -29,3 +29,23 @@ export const DEFAULT_SETTINGS = {
   startDateTime: { year: 2026, month: 1, day: 22, hour: 14, minute: 9, second: 39 },
   valueUnit: "voltage",
 };
+
+const SETTINGS_STORAGE_KEY = "animalMiru.sensorChartSettings";
+
+// 前回適用した設定を読み込む（項目が足りない場合はデフォルト値で補完する）
+export function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export function saveSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // ストレージが使えない環境では保存をあきらめる
+  }
+}

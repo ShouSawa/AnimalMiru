@@ -39,7 +39,8 @@ func SaveIngestRequest(req *IngestRequest) (saved int, total int) {
 		// ノード側はRTCが無く時刻がずれることがあるため。
 		// ここでentry.Timestampも上書きしておくことで、この後WebSocketで
 		// 配信される値もDB保存値と一致させる（REST取得分と食い違わないように）。
-		entry.Timestamp = float64(receivedAt.Unix())
+		// DBから読み出す時刻（GetSeriesのUnixMicro）と揃えるため、マイクロ秒まで残す
+		entry.Timestamp = float64(receivedAt.UnixMicro()) / 1e6
 
 		err = repository.SaveSensorData(
 			req.GatewayID,

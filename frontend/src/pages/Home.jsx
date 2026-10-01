@@ -2,15 +2,36 @@ import { useEffect, useState } from "react";
 import styles from "./Home.module.css";
 import SensorChart from "../components/SensorChart";
 import SettingsPanel from "../components/SettingsPanel";
-import { DEFAULT_SETTINGS } from "../components/sensorSettings";
+import { loadSettings } from "../components/sensorSettings";
 
 const SENSOR_IDS = ["A1", "A2", "A3"];
 
 // リアルタイムモード: 送信・保存にかかる時間を見込み、グラフの右端を現在時刻より遅らせる秒数
 const REALTIME_DELAY_SECONDS = 3;
 const REALTIME_TICK_MS = 200; // グラフを進める間隔
-const REALTIME_POLL_MS = 1000; // DBへ新着データを問い合わせる間隔
-const REALTIME_REFETCH_SECONDS = 10; // 遅れて保存されたデータも拾えるよう、毎回取り直す直近の秒数
+const SAMPLE_INTERVAL_SEC = 0.0001; // 1行に並んだ値どうしの測定間隔（バックエンドの sampleIntervalSec と同じ）
+
+// サーバーとブラウザの時計のずれ（ミリ秒）。WebSocketで最初のデータが届くまでは null
+let clockOffsetMs = null;
+// サーバーの時計に合わせた現在時刻（ミリ秒）。データの時刻はサーバーの受信時刻なので、こちらを基準に表示範囲を決める
+const serverNowMs = () => Date.now() + (clockOffsetMs ?? 0);
+
+// WebSocketで届いた sensor_data（payload_hex は A1,A2,A3 の順に3値ずつ並んだ16進数）を
+// ノード→センサ→[[UNIX秒, 値(0〜255)], ...] に変換する
+function parseSensorData(entries) {
+  const series = {};
+  for (const { node_id, timestamp, payload_hex } of entries) {
+    const values = payload_hex.split(",");
+    for (let i = 0; i + 2 < values.length; i += 3) {
+      SENSOR_IDS.forEach((sensorId, j) => {
+        const v = parseInt(values[i + j], 16);
+        if (Number.isNaN(v)) return;
+        ((series[node_id] ??= {})[sensorId] ??= []).push([timestamp + (i / 3) * SAMPLE_INTERVAL_SEC, v]);
+      });
+    }
+  }
+  return series;
+}
 
 // 手元のデータのうち [from, to) を取得し直した分で置き換え、keepFrom より古い点は捨てる
 function mergeSeries(prev, fetched, from, to, keepFrom) {
@@ -44,7 +65,7 @@ function voltageRange(points) {
 
 export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
-  const [appliedSettings, setAppliedSettings] = useState(DEFAULT_SETTINGS);
+  const [appliedSettings, setAppliedSettings] = useState(loadSettings);
   const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
   const { realtime, timeRangeSeconds } = appliedSettings;
   const pastFromSec = new Date(year, month - 1, day, hour, minute, second).getTime() / 1000;
@@ -76,35 +97,41 @@ export default function Home() {
   // リアルタイムモード: データの到着とは関係なく、現実の時間の進みに合わせてグラフを進める
   useEffect(() => {
     if (!realtime) return;
-    const id = setInterval(() => setNowMs(Date.now()), REALTIME_TICK_MS);
+    const id = setInterval(() => setNowMs(serverNowMs()), REALTIME_TICK_MS);
     return () => clearInterval(id);
   }, [realtime]);
 
-  // リアルタイムモード: 1秒ごとに直近のデータをDBから取り直して手元のデータに反映する
+  // リアルタイムモード: 表示範囲の過去分をDBから1回だけ取得し、以降の新着はWebSocketで受け取って追加する
   useEffect(() => {
     if (!realtime) return;
     let ignore = false;
-    let loadedFrom = Infinity; // この時刻以降のデータは取得済み
-    const poll = () => {
-      const nowSec = Date.now() / 1000;
-      const keepFrom = Math.floor(nowSec - REALTIME_DELAY_SECONDS - timeRangeSeconds) - 1;
-      // 初回（と表示範囲を広げた直後）は表示範囲全体を、以降は直近の数秒だけを取得する（APIは整数秒で指定）
-      const from = loadedFrom > keepFrom ? keepFrom : Math.floor(nowSec) - REALTIME_REFETCH_SECONDS;
-      const to = Math.ceil(nowSec) + 1;
-      fetch(`/api/sensor-data/series?from=${from}&to=${to}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (ignore) return;
-          loadedFrom = Math.min(loadedFrom, from);
-          setSeries((prev) => mergeSeries(prev, data.series ?? {}, from, to, keepFrom));
-        })
-        .catch((err) => console.error("リアルタイムデータ取得失敗:", err));
+    const keepFrom = () => Math.floor(serverNowMs() / 1000 - REALTIME_DELAY_SECONDS - timeRangeSeconds) - 1;
+
+    // APIは整数秒で指定する。to 以降の点はWebSocketで届いた分をそのまま残す
+    const from = keepFrom();
+    const to = Math.floor(serverNowMs() / 1000);
+    fetch(`/api/sensor-data/series?from=${from}&to=${to}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!ignore) setSeries((prev) => mergeSeries(prev, data.series ?? {}, from, to, keepFrom()));
+      })
+      .catch((err) => console.error("リアルタイムデータ取得失敗:", err));
+
+    // DB画面と同じく、サーバーがDBへ保存した直後に配信するデータを受け取る（Nginx経由）
+    const ws = new WebSocket(`ws://${window.location.host}/ws/realtime`);
+    ws.onmessage = (event) => {
+      const entries = JSON.parse(event.data).sensor_data ?? [];
+      // 「データの時刻 − 受信した時刻」の最大値（通信の遅れが最も小さいとき）を時計のずれとみなす
+      for (const { timestamp } of entries) {
+        const offset = timestamp * 1000 - Date.now();
+        if (clockOffsetMs === null || offset > clockOffsetMs) clockOffsetMs = offset;
+      }
+      // [from, to) を Infinity にすると、手元のデータを残したまま末尾に追加する
+      setSeries((prev) => mergeSeries(prev, parseSensorData(entries), Infinity, Infinity, keepFrom()));
     };
-    poll();
-    const id = setInterval(poll, REALTIME_POLL_MS);
     return () => {
       ignore = true;
-      clearInterval(id);
+      ws.close();
     };
   }, [realtime, timeRangeSeconds]);
 

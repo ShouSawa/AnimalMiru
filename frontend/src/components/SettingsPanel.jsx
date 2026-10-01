@@ -5,6 +5,8 @@ import {
   TIME_AXIS_MODE_OPTIONS,
   VALUE_UNIT_OPTIONS,
   DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
 } from "./sensorSettings";
 import ClockPicker from "./ClockPicker";
 import CalendarPicker from "./CalendarPicker";
@@ -23,8 +25,8 @@ function loadTemplates() {
 }
 
 export default function SettingsPanel({ onApply }) {
-  const [draft, setDraft] = useState(DEFAULT_SETTINGS);
-  const [applied, setApplied] = useState(DEFAULT_SETTINGS);
+  const [draft, setDraft] = useState(loadSettings);
+  const [applied, setApplied] = useState(loadSettings);
   const [templates, setTemplates] = useState(loadTemplates);
   const [templateName, setTemplateName] = useState("");
   // カレンダー・時計で色付けする、データが存在する日付と時刻（選択中の日の0時からの秒数）
@@ -57,6 +59,7 @@ export default function SettingsPanel({ onApply }) {
 
   const applySettings = (settings) => {
     setApplied(settings);
+    saveSettings(settings);
     onApply(settings);
   };
 
