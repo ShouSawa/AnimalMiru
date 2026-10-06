@@ -16,22 +16,17 @@
 #define IM920_TX 11                         // IM920s送信ピン(Arduinoの11番ピン)
 SoftwareSerial im920(IM920_RX, IM920_TX);  // IM920sとの通信用シリアルオブジェクト
 
-// アナログ入力センサ
-const uint8_t channels[3] = { A1, A2, A3 };  // PIRセンサ3つのアナログピン
-volatile uint8_t currentChannel = 0;         // 現在読み取り中のセンサ番号(0-2 = A1-A3)
+// アナログ入力センサ（A0〜A2端子 = ADCチャネル0〜2。サーバー・画面上ではA1〜A3と呼ぶ）
+#define CHANNEL_COUNT 3
+volatile uint8_t convCount = 0;  // 1回の記録中のAD変換回数(1チャネルにつき2回変換する)
 
-// データバッファ（最大32バイト）
-#define BUFFER_SIZE 32                 // バッファの最大サイズ
-volatile uint8_t buffer[BUFFER_SIZE];  // 送信データを一時保存するバッファ
-volatile uint8_t bufferIndex = 0;      // バッファの現在位置
-
-// 前回送信した値を保持
-volatile uint8_t lastValue[3] = { 0, 0, 0 };    // 各センサの前回値(8bit圧縮済み)
-volatile uint16_t rawValues[3] = { 0, 0, 0 };   // 各センサの生データ(10bit、Teleplot表示用)
-const uint8_t threshold = 1;                    // 値の変化検出しきい値
-
-// タイマ割込みで送信フラグ
-volatile bool sendFlag = false;  // 送信タイミングフラグ(350msごとにtrueになる)
+// 送信データバッファ（35msごとに3チャネルを記録 × 10回 = 30バイトで1パケット）
+#define PACKET_BYTES 30
+volatile uint8_t samples[2][PACKET_BYTES];  // 記録用と送信用を交互に使う2面バッファ
+volatile uint8_t writeBuf = 0;              // 記録中のバッファ番号
+volatile uint8_t sampleIndex = 0;           // 記録中のバッファの書き込み位置
+volatile int8_t readyBuf = -1;              // 送信待ちのバッファ番号(-1 = なし)
+volatile uint16_t rawValues[CHANNEL_COUNT] = { 0, 0, 0 };  // 各センサの生データ(10bit、Teleplot表示用)
 
 
 // IM920sにコマンドを送信して応答を受信する関数
@@ -62,13 +57,13 @@ void setup() {
   im920_command("RDNN");              // ノード番号読み出し(確認用)
   delay(1000);                        // 初期化完了待ち
 
-  // ADC設定
-  ADMUX = (1 << REFS0) | (channels[currentChannel] & 0x07);  // 基準電圧AVcc、最初のセンサ選択
-  ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADSC) | (1 << ADPS2) | (1 << ADPS1);
-  // ADEN:ADC有効化、ADIE:割込み有効化、ADSC:変換開始、ADPS:プリスケーラ64(19.2kサンプル/秒)
+  // ADC設定（変換開始はTimer1割込みで行う）
+  ADMUX = (1 << REFS0);  // 基準電圧AVcc、ADCチャネル0(A0端子)を選択
+  ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+  // ADEN:ADC有効化、ADIE:割込み有効化、ADPS:プリスケーラ128(1回の変換 約104us)
   ADCSRB = 0;  // 自動トリガなし(手動変換モード)
 
-  // タイマ設定（Timer1を使って約350msごとに割込み）
+  // タイマ設定（Timer1を使って35msごとに割込み → 10回記録で350ms/パケット）
   /*
     送信可能サンプル数：331,960サンプル/時間
     1パケットに32サンプル → 10,374パケット/時間
@@ -78,55 +73,43 @@ void setup() {
   TCCR1A = 0;                           // タイマ1制御レジスタAクリア
   TCCR1B = 0;                           // タイマ1制御レジスタBクリア
   TCNT1 = 0;                            // タイマカウンタ初期化
-  OCR1A = 5468;                         // 比較値設定(16MHz/1024で約350ms)
+  OCR1A = 2187;                         // 比較値設定(16MHz/256で(2187+1)×16us ≈ 35ms)
   TCCR1B |= (1 << WGM12);               // CTCモード(カウンタ一致でリセット)
-  TCCR1B |= (1 << CS12) | (1 << CS10);  // プリスケーラ1024設定
+  TCCR1B |= (1 << CS12);                // プリスケーラ256設定
   TIMSK1 |= (1 << OCIE1A);              // タイマ比較一致割込み許可
   interrupts();                         // 全割込み再開
 }
 
 // ADC割り込み処理(AD変換完了時に自動実行)
 ISR(ADC_vect) {
-  uint16_t value = ADC;                   // ADC結果レジスタから10bit値を読み取り
-  rawValues[currentChannel] = value;      // Teleplot表示用に生データ保存
-  // Serial.println(value);
-  uint8_t compressed = value >> 2;        // 10bit→8bitに圧縮(上位8bitを使用)
+  uint16_t value = ADC;              // ADC結果レジスタから10bit値を読み取り
 
-  // 変化判定
-  if (abs(compressed - lastValue[currentChannel]) >= threshold) {  // しきい値以上の変化があれば
-
-    // 変化があったら、lastValue[]の3センサ分をbufferに格納
-    for (uint8_t k = 0; k < 3; k++) {      // 全センサのデータを
-      if (bufferIndex < 30) {              // バッファに空きがあれば
-        buffer[bufferIndex++] = lastValue[k];  // 格納してインデックスを進める
-      }
-    }
-
-    // バッファ満杯なら即送信
-    if (bufferIndex >= 30) {               // バッファが10サンプル分(30バイト)溜まったら
-      sendFlag = true;                     // 送信フラグを立てる
-    }
+  // チャネル切替直後の1回目は前チャネルの電荷が残っているため捨て、2回目の値を記録する
+  if (convCount & 1) {
+    rawValues[convCount >> 1] = value;              // Teleplot表示用に生データ保存(convCount>>1 = チャネル番号)
+    samples[writeBuf][sampleIndex++] = value >> 2;  // 10bit→8bitに圧縮して記録
   }
-  lastValue[currentChannel] = compressed;  // 今回値を保存(次回比較用)
 
-  // 次センサへ
-  currentChannel++;                      // センサ番号を次へ
-  if (currentChannel >= 3) {             // 3センサ読み終わったら
-    currentChannel = 0;                  // 最初に戻る
-    String s0 = (String)lastValue[0];    // デバッグ用文字列変換
-    String s1 = (String)lastValue[1];
-    String s2 = (String)lastValue[2];
-    // Serial.println("0,255,"+s0+","+ s1+ ","+ s2);  // (コメントアウト)
+  convCount++;
+  if (convCount < CHANNEL_COUNT * 2) {
+    ADMUX = (ADMUX & 0xF0) | (convCount >> 1);  // 次に変換するチャネルを選択
+    ADCSRA |= (1 << ADSC);                      // 次のAD変換をトリガ
+    return;
   }
-  ADMUX = (ADMUX & 0xF0) | (channels[currentChannel] & 0x07);  // ADCマルチプレクサを次センサに切替
 
-  // 次の変換開始
-  ADCSRA |= (1 << ADSC);                 // 次のAD変換をトリガ
+  // 3チャネル分記録したらA0端子に戻し、次のタイマ割込みを待つ
+  convCount = 0;
+  ADMUX &= 0xF0;
+  if (sampleIndex >= PACKET_BYTES) {  // 10回分たまったら送信待ちにして、もう一方のバッファへ切替
+    readyBuf = writeBuf;
+    writeBuf ^= 1;
+    sampleIndex = 0;
+  }
 }
 
-// タイマ1比較一致割り込み処理(約350msごとに自動実行)
+// タイマ1比較一致割り込み処理(35msごとに自動実行)
 ISR(TIMER1_COMPA_vect) {
-  sendFlag = true;  // 送信フラグを立てる(定期送信用)
+  ADCSRA |= (1 << ADSC);  // A0端子からAD変換を開始(残りのチャネルはADC割込みで順に変換)
 }
 
 
@@ -178,16 +161,16 @@ void loop() {
     Serial.print(">A3:"); Serial.println(v2);  // Teleplot形式でA3出力
   }
 
-  if (sendFlag) {                        // 送信フラグが立っていたら
-    // 通信安定化のためADC割り込みを一時停止
-    byte oldADCSRA = ADCSRA;             // 現在のADC設定を保存
-    ADCSRA &= ~(1 << ADIE);              // ADC割込みを無効化(通信中のノイズ防止)
-    TIMSK1 &= ~(1 << OCIE1A);            // Timer1の割込みも一時停止
-
-    sendFlag = false;                    // フラグをクリア
+  if (readyBuf >= 0) {                   // 送信待ちのバッファがあれば
+    // 割り込み禁止区間で送信データをコピー（記録側の書き換えと競合しないように）
+    uint8_t packet[PACKET_BYTES];
+    noInterrupts();
+    for (uint8_t i = 0; i < PACKET_BYTES; i++) packet[i] = samples[readyBuf][i];
+    readyBuf = -1;
+    interrupts();
 
     // TXDUコマンド文字列生成
-    char outStr[5 + 4 + 1 + 30 * 2 + 2 + 1];  // コマンド用文字列バッファ
+    char outStr[5 + 4 + 1 + PACKET_BYTES * 2 + 2 + 1];  // コマンド用文字列バッファ
     char *p = outStr;                    // 書き込みポインタ
 
     *p++ = 'T';                          // "TXDU"コマンド開始
@@ -201,21 +184,17 @@ void loop() {
     *p++ = '1';
     *p++ = ' ';                          // スペース
 
-    for (uint8_t i = 0; i < bufferIndex; i++) {  // バッファ内の全データを
-      uint8_t val = buffer[i];           // 1バイト取り出し
+    for (uint8_t i = 0; i < PACKET_BYTES; i++) {  // バッファ内の全データを
+      uint8_t val = packet[i];           // 1バイト取り出し
       *p++ = "0123456789ABCDEF"[val >> 4];  // 上位4bitを16進数文字に変換
       *p++ = "0123456789ABCDEF"[val & 0x0F];  // 下位4bitを16進数文字に変換
-    }
-    if (bufferIndex == 0) {              // バッファが空なら
-      *p++ = '0';                        // ダミーデータ"00"を追加
-      *p++ = '0';
     }
 
     *p++ = '\r';                         // 改行コード追加
     *p++ = '\n';
     *p = '\0';                           // 文字列終端
 
-    // IM920s送信＋応答確認
+    // IM920s送信＋応答確認（送信中も割込みで次の10回分の記録は続く）
     int result = sendWithRetry(outStr);  // リトライ付きで送信実行
     if (result >= 0) {                   // 送信成功したら
       if (DEBUG) {
@@ -230,12 +209,5 @@ void loop() {
 
     // デバッグ表示
     if (DEBUG) Serial.println(outStr);   // 送信したコマンド文字列を表示
-
-    // バッファクリア
-    bufferIndex = 0;                     // バッファインデックスをリセット
-
-    // ADC割り込み再開
-    ADCSRA = oldADCSRA;                  // ADC設定を元に戻す(割込み再開)
-    TIMSK1 |= (1 << OCIE1A);             // Timer1の割込み再開
   }
 }

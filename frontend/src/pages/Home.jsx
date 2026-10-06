@@ -9,7 +9,7 @@ const SENSOR_IDS = ["A1", "A2", "A3"];
 // リアルタイムモード: 送信・保存にかかる時間を見込み、グラフの右端を現在時刻より遅らせる秒数
 const REALTIME_DELAY_SECONDS = 3;
 const REALTIME_TICK_MS = 200; // グラフを進める間隔
-const SAMPLE_INTERVAL_SEC = 0.0001; // 1行に並んだ値どうしの測定間隔（バックエンドの sampleIntervalSec と同じ）
+const SAMPLE_INTERVAL_SEC = 0.035; // 1行に並んだ値どうしの測定間隔（Arduinoの記録間隔。バックエンドの sampleIntervalSec と同じ）
 
 // サーバーとブラウザの時計のずれ（ミリ秒）。WebSocketで最初のデータが届くまでは null
 let clockOffsetMs = null;

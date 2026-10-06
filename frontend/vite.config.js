@@ -144,8 +144,8 @@ function mockApi() {
           for (const [sensorId, hex] of Object.entries(r.readings ?? {})) {
             if (sensorId === dropSensor) continue
             const points = (series[r.node_id][sensorId] ??= [])
-            // i番目の値は受信時刻 + i×0.1ms に測定されたものとして扱う
-            hex.split(',').forEach((h, i) => points.push([base + i * 0.0001, parseInt(h, 16)]))
+            // i番目の値は受信時刻 + i×35ms に測定されたものとして扱う
+            hex.split(',').forEach((h, i) => points.push([base + i * 0.035, parseInt(h, 16)]))
           }
         }
         res.setHeader('Content-Type', 'application/json')

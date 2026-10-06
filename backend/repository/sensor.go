@@ -10,8 +10,8 @@ import (
 )
 
 // SaveSensorData は受け取ったセンサデータを3つのテーブルに保存する関数
-// node_timestampにはノード側の時刻ではなく、サーバーの受信時刻(receivedAt)を使う。
-func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
+// gw_timestampにはサーバーの受信時刻(receivedAt)、node_timestampにはパケットごとの時刻(nodeTimestamp)を使う。
+func SaveSensorData(gatewayID string, receivedAt time.Time, nodeTimestamp time.Time, nodeID string,
 	rssiHex string, payloadHex string) error {
 
 	// ── 1. node_data に保存 ──────────────────────────────
@@ -22,7 +22,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 		INSERT INTO node_data (node_id, node_timestamp)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
-	`, nodeID, receivedAt)
+	`, nodeID, nodeTimestamp)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 		INSERT INTO gateway_data (gw_timestamp, node_id, node_timestamp, rssi_hex)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT DO NOTHING
-	`, receivedAt, nodeID, receivedAt, rssiHex)
+	`, receivedAt, nodeID, nodeTimestamp, rssiHex)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func SaveSensorData(gatewayID string, receivedAt time.Time, nodeID string,
 			ON CONFLICT (node_id, node_timestamp, sensor_id) DO UPDATE SET
 				value_hex = sensor_reading.value_hex || ',' || EXCLUDED.value_hex,
 				value_dec = sensor_reading.value_dec || ',' || EXCLUDED.value_dec
-		`, nodeID, receivedAt, sensorID, valueHex, valueDec)
+		`, nodeID, nodeTimestamp, sensorID, valueHex, valueDec)
 		if err != nil {
 			return err
 		}
@@ -121,11 +121,11 @@ type SensorLogRow struct {
 	PayloadHex string `json:"payload_hex"`
 }
 
-// sampleIntervalSec は1行に並んだ値どうしの測定間隔（約0.1ms）
-const sampleIntervalSec = 0.0001
+// sampleIntervalSec は1行に並んだ値どうしの測定間隔（Arduinoの記録間隔35ms）
+const sampleIntervalSec = 0.035
 
 // GetSeries は [from, to) の sensor_reading を取得し、ノード→センサ→[[UNIX秒, 値], ...] の形で返す。
-// 1行のi番目の値には node_timestamp + i×0.1ms の時刻を割り当てる
+// 1行のi番目の値には node_timestamp + i×35ms の時刻を割り当てる
 func GetSeries(from, to time.Time) (map[string]map[string][][2]float64, error) {
 	var rows []struct {
 		NodeID        string    `db:"node_id"`
