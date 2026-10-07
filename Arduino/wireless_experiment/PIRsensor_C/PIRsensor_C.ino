@@ -16,8 +16,9 @@
 #define IM920_TX 11                         // IM920s送信ピン(Arduinoの11番ピン)
 SoftwareSerial im920(IM920_RX, IM920_TX);  // IM920sとの通信用シリアルオブジェクト
 
-// アナログ入力センサ（A0〜A2端子 = ADCチャネル0〜2。サーバー・画面上ではA1〜A3と呼ぶ）
+// アナログ入力センサ（A1〜A3端子 = ADCチャネル1〜3。A0端子は基板上でセンサにつながっていない）
 #define CHANNEL_COUNT 3
+#define FIRST_CHANNEL 1  // 最初に読むADCチャネル(A1端子)
 volatile uint8_t convCount = 0;  // 1回の記録中のAD変換回数(1チャネルにつき2回変換する)
 
 // 送信データバッファ（35msごとに3チャネルを記録 × 10回 = 30バイトで1パケット）
@@ -58,7 +59,7 @@ void setup() {
   delay(1000);                        // 初期化完了待ち
 
   // ADC設定（変換開始はTimer1割込みで行う）
-  ADMUX = (1 << REFS0);  // 基準電圧AVcc、ADCチャネル0(A0端子)を選択
+  ADMUX = (1 << REFS0) | FIRST_CHANNEL;  // 基準電圧AVcc、ADCチャネル1(A1端子)を選択
   ADCSRA = (1 << ADEN) | (1 << ADIE) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
   // ADEN:ADC有効化、ADIE:割込み有効化、ADPS:プリスケーラ128(1回の変換 約104us)
   ADCSRB = 0;  // 自動トリガなし(手動変換モード)
@@ -92,14 +93,14 @@ ISR(ADC_vect) {
 
   convCount++;
   if (convCount < CHANNEL_COUNT * 2) {
-    ADMUX = (ADMUX & 0xF0) | (convCount >> 1);  // 次に変換するチャネルを選択
+    ADMUX = (ADMUX & 0xF0) | (FIRST_CHANNEL + (convCount >> 1));  // 次に変換するチャネルを選択
     ADCSRA |= (1 << ADSC);                      // 次のAD変換をトリガ
     return;
   }
 
-  // 3チャネル分記録したらA0端子に戻し、次のタイマ割込みを待つ
+  // 3チャネル分記録したらA1端子に戻し、次のタイマ割込みを待つ
   convCount = 0;
-  ADMUX &= 0xF0;
+  ADMUX = (ADMUX & 0xF0) | FIRST_CHANNEL;
   if (sampleIndex >= PACKET_BYTES) {  // 10回分たまったら送信待ちにして、もう一方のバッファへ切替
     readyBuf = writeBuf;
     writeBuf ^= 1;
@@ -109,7 +110,7 @@ ISR(ADC_vect) {
 
 // タイマ1比較一致割り込み処理(35msごとに自動実行)
 ISR(TIMER1_COMPA_vect) {
-  ADCSRA |= (1 << ADSC);  // A0端子からAD変換を開始(残りのチャネルはADC割込みで順に変換)
+  ADCSRA |= (1 << ADSC);  // A1端子からAD変換を開始(残りのチャネルはADC割込みで順に変換)
 }
 
 
