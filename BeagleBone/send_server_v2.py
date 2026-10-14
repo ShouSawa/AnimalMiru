@@ -5,8 +5,8 @@ send_server_v2.py
 IM920sで受信した赤外線焦電センサデータを、EX4Cクレードル経由のネット回線で
 みらいサーバーへ直接TCP送信するゲートウェイプログラム（BeagleBone上で動作）
 
-スイッチON  : プログラム開始（センサデータの収集・送信を開始）
-スイッチOFF : プログラム終了（安全にソケット・シリアルポートを閉じて終了）
+起動と同時にセンサデータの収集・送信を開始する（systemdでの自動起動を想定）
+USR1 LED : サーバーとのTCP接続中のみ点灯
 """
 
 import serial          # シリアル通信用ライブラリ
@@ -24,9 +24,6 @@ from datetime import datetime
 SERIAL_PORT = "/dev/ttyS4"          # IM920sが接続されているBeagleBoneのUARTポート
 SERIAL_BAUDRATE = 19200             # IM920sの通信速度(bps)
 SERIAL_TIMEOUT = 1                  # シリアル読み取りのタイムアウト(秒)
-
-SWITCH_PIN = "P9_12"                # 開始/終了を制御するスイッチが接続されたGPIOピン番号
-SWITCH_POLL_INTERVAL = 0.2          # スイッチ状態を確認する間隔(秒)
 
 SERVER_HOST = "153.125.138.233"     # 送信先サーバーのホスト
 SERVER_PORT = 9000                  # 送信先TCPポート
@@ -55,14 +52,6 @@ def setup_logger():
     )
     logging.getLogger().addHandler(logging.StreamHandler())  # 画面にも同時出力
 
-def setup_gpio():
-    """スイッチ用GPIOピンの初期設定を行う関数"""
-    GPIO.setup(SWITCH_PIN, GPIO.IN)           # スイッチピンを入力モードに設定
-
-def is_switch_on():
-    """スイッチがONかどうかを判定する関数（配線に応じてHIGH/LOWを調整）"""
-    return GPIO.input(SWITCH_PIN) == GPIO.HIGH  # ピンがHIGHならON、LOWならOFFとみなす
-
 def open_serial():
     """IM920sとのシリアルポートを開く関数"""
     ser = serial.Serial(                      # シリアルポートをオープン
@@ -78,6 +67,7 @@ def connect_tcp():
     try:
         s = socket.create_connection((SERVER_HOST, SERVER_PORT), timeout=SOCKET_TIMEOUT)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)  # 無通信時の回線断を検知する
+        GPIO.output("USR1", GPIO.HIGH)          # TCP接続中を示すLEDを点灯
         logging.info(f"TCP接続成功: {SERVER_HOST}:{SERVER_PORT}")
         return s
     except OSError as e:
@@ -87,6 +77,7 @@ def connect_tcp():
 def close_tcp():
     """TCP接続を閉じる関数"""
     global sock
+    GPIO.output("USR1", GPIO.LOW)               # TCP切断を示すためLEDを消灯
     if sock is not None:
         sock.close()
         sock = None
@@ -149,7 +140,7 @@ def flush_buffer():
 
 def read_sensor_data(ser, send_queue):
     """IM920sから受信した1件ずつのデータをキューへ入れるproducer"""
-    while is_switch_on():
+    while True:
         if ser.in_waiting > 0:
             raw_line = ser.readline().decode("utf-8", errors="ignore").strip()
             if raw_line == "":
@@ -171,7 +162,7 @@ def read_sensor_data(ser, send_queue):
 
 def send_sensor_batches(send_queue):
     """キューからデータを取り出してTCP送信するconsumer"""
-    while is_switch_on() or not send_queue.empty():
+    while True:
         try:
             data_buffer.append(send_queue.get(timeout=0.5))
         except queue.Empty:
@@ -185,14 +176,12 @@ def send_sensor_batches(send_queue):
         if len(data_buffer) >= BUFFER_MAX_SIZE:
             flush_buffer()
 
-    flush_buffer()
-
-def run_gateway_loop():
-    """スイッチONの間、IM920sの受信とサーバーへの送信を行う"""
-    global last_flush_time, last_connect_try
-    data_buffer.clear()
-    last_flush_time = time.time()
-    last_connect_try = 0                        # 開始直後は即座に接続を試みる
+def main():
+    """メイン処理：起動後、IM920sからデータを受信してサーバーに送信し続ける"""
+    setup_logger()                                            # ログ設定を初期化
+    GPIO.setup("USR0", GPIO.OUT)                              # USR0: 動作中を示すLED
+    GPIO.setup("USR1", GPIO.OUT)                              # USR1: TCP接続中を示すLED
+    logging.info("プログラムを起動しました。データ収集を開始します")
 
     ser_im920 = open_serial()
     send_queue = queue.Queue()
@@ -210,35 +199,19 @@ def run_gateway_loop():
     producer.start()
     consumer.start()
 
+    GPIO.output("USR0", GPIO.HIGH)
+
     try:
-        while is_switch_on():
-            GPIO.output("USR0", GPIO.HIGH)
-            time.sleep(0.05)
-        producer.join()
-        consumer.join()
+        while producer.is_alive() and consumer.is_alive():
+            time.sleep(1)
+        # スレッドが異常終了した場合は終了し、systemdのRestartで再起動させる
+        logging.error("受信または送信スレッドが終了したため、プログラムを終了します")
+        sys.exit(1)
     finally:
         close_tcp()
         ser_im920.close()
         GPIO.output("USR0", GPIO.LOW)
         logging.info("ソケットとシリアルポートを閉じました")
-
-def main():
-    """メイン処理：スイッチがONの間、IM920sからデータを受信してサーバーに送信し続ける"""
-    setup_logger()                                            # ログ設定を初期化
-    setup_gpio()                                              # GPIO(スイッチ)を初期化
-    GPIO.setup("USR0", GPIO.OUT)                              # GPIO,USR0をLED出力モードに設定
-    GPIO.setup("USR1", GPIO.OUT)
-    logging.info("プログラムを起動しました。スイッチONを待機中...")  # 起動ログ
-    GPIO.output("USR1", GPIO.HIGH)
-
-    while True:                                                # スイッチの状態を監視し続けるループ
-        if is_switch_on():                                     # スイッチがONになったら
-            GPIO.output("USR1", GPIO.LOW)
-            logging.info("スイッチON検出：データ収集を開始します")  # 開始ログ
-            run_gateway_loop()                                  # メインのゲートウェイ処理を開始
-            GPIO.output("USR1", GPIO.HIGH)
-            logging.info("スイッチOFF検出：データ収集を終了します")  # 終了ログ
-        time.sleep(SWITCH_POLL_INTERVAL)                        # 一定間隔でスイッチを確認
 
 if __name__ == "__main__":                                          # このファイルが直接実行された場合
     try:
