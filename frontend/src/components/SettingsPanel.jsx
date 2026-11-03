@@ -24,6 +24,21 @@ function loadTemplates() {
   }
 }
 
+function ToggleSection({ title, checked, onChange }) {
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitle}>{title}</div>
+      <div className={styles.toggleRow}>
+        <span>{checked ? "ON" : "OFF"}</span>
+        <label className={styles.toggleSwitch}>
+          <input type="checkbox" className={styles.toggleInput} checked={checked} onChange={onChange} />
+          <span className={styles.toggleSlider} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPanel({ onApply }) {
   const [draft, setDraft] = useState(loadSettings);
   const [applied, setApplied] = useState(loadSettings);
@@ -139,6 +154,18 @@ export default function SettingsPanel({ onApply }) {
           </label>
         </div>
       </div>
+
+      <ToggleSection
+        title="経路表示モード"
+        checked={draft.routeMode}
+        onChange={() => applyField({ routeMode: !draft.routeMode })}
+      />
+
+      <ToggleSection
+        title="センサ範囲表示"
+        checked={draft.sensorRangeVisible}
+        onChange={() => applyField({ sensorRangeVisible: !draft.sensorRangeVisible })}
+      />
 
       <div className={styles.section}>
         <label className={styles.fieldLabel}>

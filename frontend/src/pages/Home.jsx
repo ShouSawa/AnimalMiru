@@ -2,9 +2,18 @@ import { useEffect, useState } from "react";
 import styles from "./Home.module.css";
 import SensorChart from "../components/SensorChart";
 import SettingsPanel from "../components/SettingsPanel";
+import MapGrid from "../components/MapGrid";
+import SensorRanges from "../components/SensorRanges";
 import { loadSettings } from "../components/sensorSettings";
 
 const SENSOR_IDS = ["A1", "A2", "A3"];
+
+// 経路表示モードのときはノードとグラフを専用の位置（routeTop, routeLeft）に置く
+const placeOf = (item, routeMode) =>
+  routeMode ? { top: item.routeTop, left: item.routeLeft } : { top: item.top, left: item.left };
+
+// センサ範囲の色分け用。色相が違う12色でセンサを見分ける
+const hueColor = (hue) => `hsl(${hue} 100% 40%)`;
 
 // リアルタイムモード: 送信・保存にかかる時間を見込み、グラフの右端を現在時刻より遅らせる秒数
 const REALTIME_DELAY_SECONDS = 3;
@@ -67,7 +76,7 @@ export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
   const [appliedSettings, setAppliedSettings] = useState(loadSettings);
   const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
-  const { realtime, timeRangeSeconds } = appliedSettings;
+  const { realtime, timeRangeSeconds, routeMode, sensorRangeVisible } = appliedSettings;
   const pastFromSec = new Date(year, month - 1, day, hour, minute, second).getTime() / 1000;
   // リアルタイムモードで時計の進みに合わせて更新する現在時刻（ミリ秒）
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -145,17 +154,21 @@ export default function Home() {
   }
 
   // テストフィールドの仮ノード座標（後から実測値に差し替え可能）
+  // routeTop, routeLeft: 経路表示モードでの位置（ノードは±5m、グラフは地図の外周）
   // charts: 各ノードに付いている3つのセンサのグラフ表示位置（仮）
+  //   angle: センサの向き（東を0°とした反時計回り）、hue: センサ範囲とグラフの色相
   const nodes = [
     {
       node_id: "0002",
       label: "ノードA",
       top: "20%",
       left: "80%",
+      routeTop: "33.33%",
+      routeLeft: "66.67%",
       charts: [
-        { top: "30%", left: "66%" },
-        { top: "24%", left: "96%" },
-        { top: "8%", left: "72%" },
+        { top: "30%", left: "66%", routeTop: "-13%", routeLeft: "118%", angle: 225, hue: 0 },
+        { top: "24%", left: "96%", routeTop: "6%", routeLeft: "118%", angle: 345, hue: 330 },
+        { top: "8%", left: "72%", routeTop: "-13%", routeLeft: "91%", angle: 105, hue: 300 },
       ],
     },
     {
@@ -163,10 +176,12 @@ export default function Home() {
       label: "ノードB",
       top: "80%",
       left: "80%",
+      routeTop: "66.67%",
+      routeLeft: "66.67%",
       charts: [
-        { top: "70%", left: "66%" },
-        { top: "92%", left: "72%" },
-        { top: "74%", left: "96%" },
+        { top: "70%", left: "66%", routeTop: "113%", routeLeft: "118%", angle: 135, hue: 30 },
+        { top: "92%", left: "72%", routeTop: "113%", routeLeft: "91%", angle: 255, hue: 90 },
+        { top: "74%", left: "96%", routeTop: "94%", routeLeft: "118%", angle: 15, hue: 60 },
       ],
     },
     {
@@ -174,10 +189,12 @@ export default function Home() {
       label: "ノードC",
       top: "80%",
       left: "20%",
+      routeTop: "66.67%",
+      routeLeft: "33.33%",
       charts: [
-        { top: "70%", left: "34%" },
-        { top: "74%", left: "4%" },
-        { top: "92%", left: "30%" },
+        { top: "70%", left: "34%", routeTop: "113%", routeLeft: "-18%", angle: 45, hue: 180 },
+        { top: "74%", left: "4%", routeTop: "94%", routeLeft: "-18%", angle: 165, hue: 120 },
+        { top: "92%", left: "30%", routeTop: "113%", routeLeft: "9%", angle: 285, hue: 150 },
       ],
     },
     {
@@ -185,10 +202,12 @@ export default function Home() {
       label: "ノードD",
       top: "20%",
       left: "20%",
+      routeTop: "33.33%",
+      routeLeft: "33.33%",
       charts: [
-        { top: "30%", left: "34%" },
-        { top: "8%", left: "28%" },
-        { top: "24%", left: "4%" },
+        { top: "30%", left: "34%", routeTop: "-13%", routeLeft: "-18%", angle: 315, hue: 210 },
+        { top: "8%", left: "28%", routeTop: "-13%", routeLeft: "9%", angle: 75, hue: 270 },
+        { top: "24%", left: "4%", routeTop: "6%", routeLeft: "-18%", angle: 195, hue: 240 },
       ],
     },
   ];
@@ -200,7 +219,7 @@ export default function Home() {
       <SettingsPanel onApply={setAppliedSettings} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
-      <div className={styles.mapScroll}>
+      <div className={`${styles.mapScroll} ${routeMode ? styles.mapScrollRoute : ""}`}>
       <div className={styles.mapArea}>
 
         {/* 仮ラベル（Leaflet導入後に削除） */}
@@ -208,12 +227,26 @@ export default function Home() {
           ※ この領域は後からLeaflet地図に差し替えます
         </span>
 
+        {routeMode && <MapGrid />}
+
+        {sensorRangeVisible && (
+          <SensorRanges
+            sectors={nodes.flatMap((node) =>
+              node.charts.map((chart) => ({
+                ...placeOf(node, routeMode),
+                angle: chart.angle,
+                color: hueColor(chart.hue),
+              }))
+            )}
+          />
+        )}
+
         {/* センサノードのピン */}
         {nodes.map((node) => (
           <div
             key={node.node_id}
             className={styles.nodePin}
-            style={{ "--top": node.top, "--left": node.left }}
+            style={{ "--top": placeOf(node, routeMode).top, "--left": placeOf(node, routeMode).left }}
           >
             📡
             <span>{node.node_id}</span>
@@ -222,13 +255,14 @@ export default function Home() {
 
         {/* 各センサ値グラフ */}
         {nodes.map((node) =>
-          node.charts.map((pos, i) =>
+          node.charts.map((chart, i) =>
             appliedSettings.chartsVisible ? (
               <SensorChart
                 key={`${node.node_id}-${i}`}
                 label={`Sensor ${SENSOR_IDS[i]}`}
-                top={pos.top}
-                left={pos.left}
+                color={sensorRangeVisible ? hueColor(chart.hue) : undefined}
+                top={placeOf(chart, routeMode).top}
+                left={placeOf(chart, routeMode).left}
                 points={visibleSeries[node.node_id]?.[SENSOR_IDS[i]]}
                 valueUnit={appliedSettings.valueUnit}
                 timeRangeSeconds={appliedSettings.timeRangeSeconds}

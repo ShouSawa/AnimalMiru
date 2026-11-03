@@ -78,6 +78,7 @@ const X_MINOR_DIVISIONS_PER_TICK = 5; // 目盛り間をさらに何分割して
 
 export default function SensorChart({
   label = "Sensor",
+  color, // タイトルと波形の色（省略時は標準の色）
   top,
   left,
   points = [], // [[UNIX秒, 値(0〜255)], ...]（時刻の昇順）
@@ -145,7 +146,7 @@ export default function SensorChart({
   const renderContent = (buckets, lineWidth) => (
     <>
       <div className={styles.corner} />
-      <div className={styles.header}>{label}</div>
+      <div className={styles.header} style={{ color }}>{label}</div>
       <div className={styles.body}>
         <div className={styles.yAxis}>
           {yTicks.map((t) => {
@@ -195,7 +196,7 @@ export default function SensorChart({
             <path
               d={buildPath(points, startSec, timeRangeSeconds, width, height, buckets)}
               fill="none"
-              stroke="#2d9e4f"
+              stroke={color ?? "#2d9e4f"}
               strokeWidth={lineWidth}
               strokeLinecap="round"
               strokeLinejoin="round"

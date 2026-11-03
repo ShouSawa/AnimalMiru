@@ -15,6 +15,11 @@
   padding: 0 72px;
 }
 
+/* 経路表示モードでは、グラフを地図の外周（左右約300px・上下約210px）に置くため、その分の余白を確保する */
+.mapScrollRoute {
+  padding: 220px 310px;
+}
+
 .mapArea {
   position: relative;
   width: 1000px;
