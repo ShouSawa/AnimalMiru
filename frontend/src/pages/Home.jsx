@@ -248,8 +248,8 @@ export default function Home() {
             className={styles.nodePin}
             style={{ "--top": placeOf(node, routeMode).top, "--left": placeOf(node, routeMode).left }}
           >
-            📡
-            <span>{node.node_id}</span>
+            <img className={styles.nodePinImage} src={`/Sensornode${node.node_id}.png`} alt={node.node_id} />
+            <span className={styles.nodePinLabel}>{node.node_id}</span>
           </div>
         ))}
 
