@@ -38,6 +38,7 @@ func main() {
 	mux.HandleFunc("/api/sensor-data/availability", handler.ServeAvailability())
 	mux.HandleFunc("/api/sensor-data/series", handler.ServeSeries())
 	mux.HandleFunc("/api/sensor-data/logs", handler.ServeLogs())
+	mux.HandleFunc("/api/templates", handler.ServeTemplates())
 	go func() {
 		log.Println("WebSocketサーバー起動: ポート8081で待ち受け中（/ws/realtime）")
 		if err := http.ListenAndServe(":8081", mux); err != nil {

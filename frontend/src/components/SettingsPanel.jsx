@@ -4,7 +4,6 @@ import {
   TIME_RANGE_OPTIONS,
   TIME_AXIS_MODE_OPTIONS,
   VALUE_UNIT_OPTIONS,
-  DEFAULT_SETTINGS,
   loadSettings,
   saveSettings,
 } from "./sensorSettings";
@@ -12,18 +11,7 @@ import ClockPicker from "./ClockPicker";
 import CalendarPicker from "./CalendarPicker";
 import { exportSensorCsv } from "./sensorCsv";
 
-const TEMPLATES_STORAGE_KEY = "animalMiru.sensorChartTemplates";
-
 const pad2 = (v) => String(v).padStart(2, "0");
-
-function loadTemplates() {
-  try {
-    const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
 
 function ToggleSection({ title, checked, onChange }) {
   return (
@@ -43,8 +31,9 @@ function ToggleSection({ title, checked, onChange }) {
 export default function SettingsPanel({ onApply }) {
   const [draft, setDraft] = useState(loadSettings);
   const [applied, setApplied] = useState(loadSettings);
-  const [templates, setTemplates] = useState(loadTemplates);
+  const [templateNames, setTemplateNames] = useState([]);
   const [templateName, setTemplateName] = useState("");
+  const [templateMessage, setTemplateMessage] = useState("");
   // カレンダー・時計で色付けする、データが存在する日付と時刻（選択中の日の0時からの秒数）
   const [dataDates, setDataDates] = useState([]);
   const [dataSeconds, setDataSeconds] = useState([]);
@@ -54,7 +43,14 @@ export default function SettingsPanel({ onApply }) {
   const { year, month, day, hour, minute, second } = draft.startDateTime;
   const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
 
+  const refreshTemplateNames = () =>
+    fetch("/api/templates")
+      .then((res) => res.json())
+      .then((data) => setTemplateNames(data.names ?? []))
+      .catch((err) => console.error("テンプレ名一覧取得失敗:", err));
+
   useEffect(() => {
+    refreshTemplateNames();
     fetch("/api/sensor-data/availability")
       .then((res) => res.json())
       .then((data) => setDataDates(data.dates ?? []))
@@ -114,25 +110,53 @@ export default function SettingsPanel({ onApply }) {
     }
   };
 
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     const name = templateName.trim();
     if (!name) return;
-    const nextTemplates = [...templates, { name, settings: draft }];
-    setTemplates(nextTemplates);
-    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(nextTemplates));
-    setTemplateName("");
+    setTemplateMessage("");
+    try {
+      const res = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          time_range: draft.timeRangeSeconds,
+          horizontal_axis: draft.timeAxisMode,
+          vertical_axis: draft.valueUnit,
+          start_time: `${dateKey}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}`,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setTemplateName("");
+      setTemplateMessage(`「${name}」を保存しました`);
+      refreshTemplateNames();
+    } catch (err) {
+      console.error("テンプレ保存失敗:", err);
+      setTemplateMessage("テンプレの保存に失敗しました");
+    }
   };
 
-  const handleLoadTemplate = (e) => {
-    const idx = e.target.value;
+  const handleLoadTemplate = async (e) => {
+    const name = e.target.value;
     e.target.value = "";
-    if (idx === "") return;
-    const template = templates[Number(idx)];
-    if (!template) return;
-    // 古い形式で保存されたテンプレートに項目が足りない場合はデフォルト値で補完する
-    const settings = { ...DEFAULT_SETTINGS, ...template.settings };
-    setDraft(settings);
-    applySettings(settings);
+    if (name === "") return;
+    setTemplateMessage("");
+    try {
+      const res = await fetch(`/api/templates?name=${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const template = await res.json();
+      // "YYYY-MM-DDTHH:MM:SS" を年月日・時分秒の数値に分解する
+      const [y, mo, d, h, mi, s] = template.start_time.split(/[-T:]/).map(Number);
+      applyField({
+        timeRangeSeconds: template.time_range,
+        timeAxisMode: template.horizontal_axis,
+        valueUnit: template.vertical_axis,
+        startDateTime: { year: y, month: mo, day: d, hour: h, minute: mi, second: s },
+      });
+    } catch (err) {
+      console.error("テンプレ読み込み失敗:", err);
+      setTemplateMessage("テンプレの読み込みに失敗しました");
+    }
   };
 
   const startPending = JSON.stringify(draft.startDateTime) !== JSON.stringify(applied.startDateTime);
@@ -298,12 +322,13 @@ export default function SettingsPanel({ onApply }) {
           onChange={handleLoadTemplate}
         >
           <option value="">テンプレを選択…</option>
-          {templates.map((t, i) => (
-            <option key={i} value={i}>
-              {t.name}
+          {templateNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
             </option>
           ))}
         </select>
+        {templateMessage && <div className={styles.csvMessage}>{templateMessage}</div>}
       </div>
     </div>
   );

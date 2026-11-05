@@ -34,4 +34,18 @@ erDiagram
   node_master ||--o{ node_data : "送信する"
   node_data ||--o{ sensor_reading : "内訳を持つ"
   node_data ||--o{ gateway_data : "受信される"
+
+  data_template {
+    string name PK "テンプレート名"
+    int time_range "時間の範囲[s]"
+    string horizontal_axis "横軸の表示"
+    string vertical_axis "縦軸の表示"
+    timestamp start_time "表示開始時間"
+  }
+
+  estimation_position {
+    string time_stamp PK "時刻(0.25s間隔)"
+    string time_stamp PK "時刻(0.1s間隔)"
+  }
+
 ```

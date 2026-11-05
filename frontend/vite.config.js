@@ -174,6 +174,25 @@ function mockApi() {
         res.end(JSON.stringify({ sensor_data: rows.map(toLogEntry) }))
       })
 
+      // Goの ServeTemplates と同じ形で、テンプレートをメモリ上に保存して返す（開発サーバーを止めると消える）
+      const mockTemplates = new Map()
+      server.middlewares.use('/api/templates', (req, res) => {
+        if (req.method === 'POST') {
+          let body = ''
+          req.on('data', (chunk) => (body += chunk))
+          req.on('end', () => {
+            const template = JSON.parse(body)
+            mockTemplates.set(template.name, template)
+            res.statusCode = 204
+            res.end()
+          })
+          return
+        }
+        const name = new URL(req.url, 'http://localhost').searchParams.get('name')
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(name ? mockTemplates.get(name) : { names: [...mockTemplates.keys()].sort() }))
+      })
+
       // Vite内蔵のサーバーに、/api/sensor-data/recent を受け付ける処理を追加する
       server.middlewares.use('/api/sensor-data/recent', (req, res) => {
         const rows = loadMockRows()
