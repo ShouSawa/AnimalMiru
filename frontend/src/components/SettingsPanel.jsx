@@ -10,6 +10,7 @@ import {
 } from "./sensorSettings";
 import ClockPicker from "./ClockPicker";
 import CalendarPicker from "./CalendarPicker";
+import { exportSensorCsv } from "./sensorCsv";
 
 const TEMPLATES_STORAGE_KEY = "animalMiru.sensorChartTemplates";
 
@@ -47,6 +48,8 @@ export default function SettingsPanel({ onApply }) {
   // カレンダー・時計で色付けする、データが存在する日付と時刻（選択中の日の0時からの秒数）
   const [dataDates, setDataDates] = useState([]);
   const [dataSeconds, setDataSeconds] = useState([]);
+  const [csvExporting, setCsvExporting] = useState(false);
+  const [csvMessage, setCsvMessage] = useState("");
 
   const { year, month, day, hour, minute, second } = draft.startDateTime;
   const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
@@ -94,6 +97,21 @@ export default function SettingsPanel({ onApply }) {
 
   const handleApply = () => {
     applySettings({ ...applied, startDateTime: draft.startDateTime });
+  };
+
+  // 設定エリアに表示中の開始時間（「適用」前でも）から、時間の範囲の分を出力する
+  const handleExportCsv = async () => {
+    setCsvExporting(true);
+    setCsvMessage("");
+    try {
+      const count = await exportSensorCsv(draft.startDateTime, draft.timeRangeSeconds);
+      setCsvMessage(count > 0 ? `${count}件を出力しました` : "指定した期間のデータがありません");
+    } catch (err) {
+      console.error("CSV出力失敗:", err);
+      setCsvMessage("CSV出力に失敗しました");
+    } finally {
+      setCsvExporting(false);
+    }
   };
 
   const handleSaveTemplate = () => {
@@ -248,6 +266,17 @@ export default function SettingsPanel({ onApply }) {
         >
           選択した日時を適用
         </button>
+      </div>
+
+      <div className={styles.section}>
+        <button
+          className={styles.saveButton}
+          disabled={draft.realtime || csvExporting}
+          onClick={handleExportCsv}
+        >
+          csvに出力
+        </button>
+        {csvMessage && <div className={styles.csvMessage}>{csvMessage}</div>}
       </div>
 
       <div className={styles.templateSection}>

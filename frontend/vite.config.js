@@ -58,6 +58,20 @@ function toSensorEntry({ base, r, dropSensor }) {
   return { node_id: r.node_id, rssi_hex: r.rssi_hex, timestamp: base, payload_hex: values.join(',') }
 }
 
+// テストデータの1行を、Goの SensorLogRow と同じ形（DB画面の一覧の1行）に変換する
+function toLogEntry({ base, r, dropSensor }) {
+  return {
+    node_id: r.node_id,
+    rssi_hex: r.rssi_hex,
+    timestamp: Math.floor(base),
+    payload_hex: Object.keys(r.readings ?? {})
+      .filter((id) => id !== dropSensor)
+      .sort()
+      .map((id) => `${id}=${r.readings[id]}`)
+      .join(' / '),
+  }
+}
+
 // テキストを1つのWebSocketフレームにする（サーバー→ブラウザ方向はマスク不要）
 function wsTextFrame(text) {
   const payload = Buffer.from(text)
@@ -152,20 +166,20 @@ function mockApi() {
         res.end(JSON.stringify({ series }))
       })
 
+      // Goの ServeLogs と同じ形で、[from, to) のデータをDB画面の一覧と同じ形で返す
+      server.middlewares.use('/api/sensor-data/logs', (req, res) => {
+        const params = new URL(req.url, 'http://localhost').searchParams
+        const rows = mockRowsInRange(Number(params.get('from')), Number(params.get('to')))
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ sensor_data: rows.map(toLogEntry) }))
+      })
+
       // Vite内蔵のサーバーに、/api/sensor-data/recent を受け付ける処理を追加する
       server.middlewares.use('/api/sensor-data/recent', (req, res) => {
         const rows = loadMockRows()
         // Goの GetRecentLogs と同じ形・同じ並び（新しい順）に変換する
         const sensorData = rows
-          .map((r) => ({
-            node_id: r.node_id,
-            rssi_hex: r.rssi_hex,
-            timestamp: Math.floor(new Date(r.node_timestamp).getTime() / 1000),
-            payload_hex: Object.keys(r.readings ?? {})
-              .sort()
-              .map((id) => `${id}=${r.readings[id]}`)
-              .join(' / '),
-          }))
+          .map((r) => toLogEntry({ base: new Date(r.node_timestamp).getTime() / 1000, r }))
           .reverse()
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify({ sensor_data: sensorData }))

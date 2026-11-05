@@ -161,6 +161,62 @@ func GetSeries(from, to time.Time) (map[string]map[string][][2]float64, error) {
 	return series, nil
 }
 
+// GetLogsInRange は node_timestamp が [from, to) のデータを、DB画面の一覧と同じ形に組み立てて古い順に返す。
+// 期間が長いと行数が多くなるため、行ごとに問い合わせず sensor_reading もまとめて取得する
+func GetLogsInRange(from, to time.Time) ([]SensorLogRow, error) {
+	var gwRows []struct {
+		NodeID        string    `db:"node_id"`
+		NodeTimestamp time.Time `db:"node_timestamp"`
+		RssiHex       string    `db:"rssi_hex"`
+	}
+	err := db.DB.Select(&gwRows, `
+		SELECT node_id, node_timestamp, rssi_hex
+		FROM gateway_data
+		WHERE node_timestamp >= $1 AND node_timestamp < $2
+		ORDER BY node_timestamp, node_id
+	`, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	var sensorRows []struct {
+		NodeID        string    `db:"node_id"`
+		NodeTimestamp time.Time `db:"node_timestamp"`
+		SensorID      string    `db:"sensor_id"`
+		ValueHex      string    `db:"value_hex"`
+	}
+	err = db.DB.Select(&sensorRows, `
+		SELECT node_id, node_timestamp, sensor_id, value_hex
+		FROM sensor_reading
+		WHERE node_timestamp >= $1 AND node_timestamp < $2
+		ORDER BY sensor_id
+	`, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	type readingKey struct {
+		nodeID string
+		micros int64
+	}
+	parts := make(map[readingKey][]string)
+	for _, s := range sensorRows {
+		key := readingKey{s.NodeID, s.NodeTimestamp.UnixMicro()}
+		parts[key] = append(parts[key], s.SensorID+"="+s.ValueHex)
+	}
+
+	logs := make([]SensorLogRow, 0, len(gwRows))
+	for _, g := range gwRows {
+		logs = append(logs, SensorLogRow{
+			NodeID:     g.NodeID,
+			RssiHex:    g.RssiHex,
+			Timestamp:  g.NodeTimestamp.Unix(),
+			PayloadHex: strings.Join(parts[readingKey{g.NodeID, g.NodeTimestamp.UnixMicro()}], " / "),
+		})
+	}
+	return logs, nil
+}
+
 // GetRecentLogs はgateway_data・sensor_readingから直近limit件を取得し、
 // フロントの一覧表示用に組み立てて返す（新しい順）
 func GetRecentLogs(limit int) ([]SensorLogRow, error) {

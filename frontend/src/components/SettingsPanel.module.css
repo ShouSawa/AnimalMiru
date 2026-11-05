@@ -139,6 +139,11 @@
   background: #1a4a32;
 }
 
+.csvMessage {
+  font-size: 12px;
+  color: #333;
+}
+
 .templateSection {
   display: flex;
   flex-wrap: wrap;

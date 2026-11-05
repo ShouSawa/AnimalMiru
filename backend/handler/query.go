@@ -70,6 +70,29 @@ func ServeSeries() http.HandlerFunc {
 	}
 }
 
+// ServeLogs は /api/sensor-data/logs?from=UNIX秒&to=UNIX秒 のHTTPハンドラを返す。
+// 設定エリアのCSV出力で、指定期間のデータをDB画面と同じ形で取得するために使う
+func ServeLogs() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		from, errFrom := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
+		to, errTo := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
+		if errFrom != nil || errTo != nil || to <= from {
+			http.Error(w, "invalid from/to", http.StatusBadRequest)
+			return
+		}
+
+		logs, err := repository.GetLogsInRange(time.Unix(from, 0), time.Unix(to, 0))
+		if err != nil {
+			log.Printf("CSV用データ取得失敗: %v", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"sensor_data": logs})
+	}
+}
+
 // ServeRecentLogs は /api/sensor-data/recent のHTTPハンドラを返す。
 // DB画面を開いた直後に、これまでDBに保存済みのデータを表示するために使う
 // （WebSocketはこの後の新着データのみを配信するため）
