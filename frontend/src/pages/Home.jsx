@@ -5,6 +5,9 @@ import SettingsPanel from "../components/SettingsPanel";
 import MapGrid from "../components/MapGrid";
 import SensorRanges from "../components/SensorRanges";
 import { loadSettings } from "../components/sensorSettings";
+import EstimateLayer from "../estimate/EstimateLayer";
+import ConfigPanel from "../estimate/ConfigPanel";
+import useEstimateFrame from "../estimate/useEstimateFrame";
 
 const SENSOR_IDS = ["A1", "A2", "A3"];
 
@@ -16,9 +19,10 @@ const placeOf = (item, routeMode) =>
 const hueColor = (hue) => `hsl(${hue} 100% 40%)`;
 
 // リアルタイムモード: 送信・保存にかかる時間を見込み、グラフの右端を現在時刻より遅らせる秒数
-const REALTIME_DELAY_SECONDS = 3;
+// = delay_sec(3.0) + 0.5．バックエンドの delay_sec と対で変えること
+const REALTIME_DELAY_SECONDS = 3.5;
 const REALTIME_TICK_MS = 200; // グラフを進める間隔
-const SAMPLE_INTERVAL_SEC = 0.035; // 1行に並んだ値どうしの測定間隔（Arduinoの記録間隔。バックエンドの sampleIntervalSec と同じ）
+const SAMPLE_INTERVAL_SEC = 0.035; // 1行に並んだ値どうしの測定間隔（Arduinoの記録間隔。バックエンドの samples.SampleInterval と同じ）
 
 // サーバーとブラウザの時計のずれ（ミリ秒）。WebSocketで最初のデータが届くまでは null
 let clockOffsetMs = null;
@@ -29,13 +33,13 @@ const serverNowMs = () => Date.now() + (clockOffsetMs ?? 0);
 // ノード→センサ→[[UNIX秒, 値(0〜255)], ...] に変換する
 function parseSensorData(entries) {
   const series = {};
-  for (const { node_id, timestamp, payload_hex } of entries) {
+  for (const { node_id, t0, payload_hex } of entries) {
     const values = payload_hex.split(",");
     for (let i = 0; i + 2 < values.length; i += 3) {
       SENSOR_IDS.forEach((sensorId, j) => {
         const v = parseInt(values[i + j], 16);
         if (Number.isNaN(v)) return;
-        ((series[node_id] ??= {})[sensorId] ??= []).push([timestamp + (i / 3) * SAMPLE_INTERVAL_SEC, v]);
+        ((series[node_id] ??= {})[sensorId] ??= []).push([t0 + (i / 3) * SAMPLE_INTERVAL_SEC, v]);
       });
     }
   }
@@ -76,7 +80,7 @@ export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
   const [appliedSettings, setAppliedSettings] = useState(loadSettings);
   const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
-  const { realtime, timeRangeSeconds, routeMode, sensorRangeVisible } = appliedSettings;
+  const { realtime, timeRangeSeconds, routeMode, sensorRangeVisible, positionVisible } = appliedSettings;
   const pastFromSec = new Date(year, month - 1, day, hour, minute, second).getTime() / 1000;
   // リアルタイムモードで時計の進みに合わせて更新する現在時刻（ミリ秒）
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -84,6 +88,8 @@ export default function Home() {
   const toSec = realtime ? nowMs / 1000 - REALTIME_DELAY_SECONDS : pastFromSec + timeRangeSeconds;
   const fromSec = toSec - timeRangeSeconds;
   const startDateTime = new Date(fromSec * 1000);
+  // 位置表示がONのときの推定結果。地図に重ねるのは座標が地図の0〜100%と一致する経路表示モードだけ
+  const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec });
   // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
   const [series, setSeries] = useState({});
 
@@ -216,7 +222,7 @@ export default function Home() {
     <div className={styles.page}>
       <h2>テストフィールド - 行動経路表示</h2>
 
-      <SettingsPanel onApply={setAppliedSettings} />
+      <SettingsPanel onApply={setAppliedSettings} estimateTs={frame?.ts ?? null} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
       <div className={`${styles.mapScroll} ${routeMode ? styles.mapScrollRoute : ""}`}>
@@ -228,6 +234,7 @@ export default function Home() {
         </span>
 
         {routeMode && <MapGrid />}
+        {routeMode && positionVisible && <EstimateLayer frame={frame} />}
 
         {sensorRangeVisible && (
           <SensorRanges
@@ -274,6 +281,9 @@ export default function Home() {
         )}
       </div>
       </div>
+
+
+      <ConfigPanel />
 
       {/* データ解析エリア：グラフ表示期間内の各センサの最大・最小電圧 */}
       <div className={styles.analysisArea}>

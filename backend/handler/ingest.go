@@ -3,9 +3,11 @@ package handler
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/ShouSawa/AnimalMiru/backend/repository"
+	"github.com/ShouSawa/AnimalMiru/backend/samples"
 )
 
 // BeagleBoneから受け取るJSONの構造
@@ -14,6 +16,7 @@ type SensorEntry struct {
 	RssiHex    string  `json:"rssi_hex"`
 	PayloadHex string  `json:"payload_hex"`
 	Timestamp  float64 `json:"timestamp"`
+	T0         float64 `json:"t0"` // 先頭サンプルの補正後時刻（UNIX秒）．リアルタイムのグラフが使う
 }
 
 type IngestRequest struct {
@@ -47,6 +50,9 @@ func SaveIngestRequest(req *IngestRequest) (saved int, total int) {
 		// 配信される値もDB保存値と一致させる（REST取得分と食い違わないように）。
 		// DBから読み出す時刻（GetSeriesのUnixMicro）と揃えるため、マイクロ秒まで残す
 		entry.Timestamp = float64(nodeTimestamp.UnixMicro()) / 1e6
+		// 1センサあたりの値の個数 = payload_hexの要素数÷3（A1,A2,A3の3値ずつ）
+		n := len(strings.Split(strings.TrimSpace(entry.PayloadHex), ",")) / 3
+		entry.T0 = float64(samples.FirstSampleTime(nodeTimestamp, n).UnixMicro()) / 1e6
 
 		err = repository.SaveSensorData(
 			req.GatewayID,

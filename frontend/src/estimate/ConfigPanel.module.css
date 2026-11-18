@@ -1,0 +1,102 @@
+.panel {
+  box-sizing: border-box;
+  max-width: 1076px;
+  margin: 16px auto 0;
+  padding: 16px 20px;
+  background: #f1f8f4;
+  border: 1px solid #2d6a4f;
+  border-radius: 8px;
+  color: #222;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.title {
+  font-weight: bold;
+  font-size: 15px;
+  color: #2d6a4f;
+}
+
+.updateButton {
+  padding: 6px 20px;
+  background: #2d6a4f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.updateButton:hover {
+  background: #1a4a32;
+}
+
+.updateButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid #cfead9;
+  font-size: 13px;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.caption {
+  font-size: 11px;
+  color: #777;
+}
+
+.value {
+  flex: 1;
+  word-break: break-all;
+}
+
+.input,
+.select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  color: #222;
+  color-scheme: light;
+}
+
+.editButton {
+  width: 56px;
+  padding: 4px 0;
+  background: white;
+  color: #2d6a4f;
+  border: 1px solid #2d6a4f;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.editButton:hover {
+  background: #e8f5e9;
+}
+
+.message {
+  margin-top: 8px;
+  font-size: 13px;
+}
