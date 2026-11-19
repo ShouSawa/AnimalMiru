@@ -15,11 +15,17 @@ import (
 )
 
 // startEstimator は環境変数 ESTIMATOR_CONFIG_ID の設定で経路推定を起動する。
-// 使用中の config_id を返す関数と、使用する設定を切り替える関数を返す。
-// 未設定や設定の読み込み失敗のときは推定を起動せず、切り替えはエラーになる（受信・配信・APIは通常どおり動く）
-func startEstimator(hub *websocket.Hub) (active func() int, activate func(int) error) {
+// 使用中の config_id を返す関数、使用する設定を切り替える関数、センサデータの保存後に呼ぶ通知関数を返す。
+// 推定はこの通知（TCP受信）をきっかけに計算する。
+// 未設定や設定の読み込み失敗のときは推定を起動せず、通知は何もせず、切り替えはエラーになる（受信・配信・APIは通常どおり動く）
+func startEstimator(hub *websocket.Hub) (active func() int, activate func(int) error, notify func()) {
 	var run *runner.Runner
 	configID := 0
+	notify = func() {
+		if run != nil {
+			run.Notify()
+		}
+	}
 	active = func() int {
 		if run == nil {
 			return configID

@@ -15,7 +15,7 @@ const (
 	slowLimit  = time.Second
 )
 
-// Runner は毎秒1つの窓を処理する常駐処理
+// Runner はセンサデータの到着をきっかけに，計算できる窓を1秒ずつ処理する常駐処理
 type Runner struct {
 	deps     Deps
 	configID int
@@ -24,8 +24,9 @@ type Runner struct {
 	cal      [12]estimator.SensorCal
 	filter   *estimator.Filter
 	events   *EventCounter
-	lastT    time.Time  // 最後に処理した窓の開始時刻（起動直後はゼロ値）
-	mu       sync.Mutex // Tick と Switch が設定・信念を同時に触らないようにする
+	lastT    time.Time     // 最後に処理した窓の開始時刻（起動直後はゼロ値）
+	mu       sync.Mutex    // Tick と Switch が設定・信念を同時に触らないようにする
+	trigger  chan struct{} // Notify の合図．容量1で，処理待ちの間の合図はまとめる
 }
 
 // New は一様な信念から始まる Runner を作る．lastEventID は MaxEventID の結果
@@ -33,24 +34,33 @@ func New(deps Deps, configID int, g estimator.Grid, p estimator.Params, cal [12]
 	return &Runner{
 		deps: deps, configID: configID, grid: g, p: p, cal: cal,
 		filter: estimator.NewFilter(g, p), events: NewEventCounter(lastEventID),
+		trigger: make(chan struct{}, 1),
 	}
 }
 
-// Run は毎秒の切り替わり直後に Tick を呼ぶ．ctx が終わるまで続ける
+// Notify はセンサデータをDBへ保存した直後に呼ぶ．待たずにすぐ戻る．
+// 計算中に何度呼ばれても，終わったあとにもう1回 Tick が走る
+func (r *Runner) Notify() {
+	select {
+	case r.trigger <- struct{}{}:
+	default:
+	}
+}
+
+// Run は Notify の合図ごとに Tick を呼ぶ．ctx が終わるまで続ける
 func (r *Runner) Run(ctx context.Context) {
 	for {
-		now := r.deps.Now()
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(now.Truncate(time.Second).Add(time.Second).Sub(now)):
+		case <-r.trigger:
 			r.Tick()
 		}
 	}
 }
 
-// Tick は現在時刻に対応する窓を処理する．取りこぼした窓があれば順に処理する．
-// 起動直後は過去に遡らず，10秒を超えて遅れたときは最新の窓へ飛んで信念を一様に戻す
+// Tick は現在時刻（now − 窓の長さ − delay_sec）までに完成した窓を処理する．取りこぼした窓があれば順に処理する．
+// 起動直後は過去に遡らず，10秒を超えて空いたときは最新の窓へ飛んで信念を一様に戻す
 func (r *Runner) Tick() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -61,7 +71,7 @@ func (r *Runner) Tick() {
 	case gap <= 0:
 		return
 	case gap > catchUpMax:
-		log.Printf("推定: %s 遅れたので最新の窓へ飛びます（信念を一様に戻す）", gap)
+		log.Printf("推定: %s 空いたので最新の窓へ飛びます（信念を一様に戻す）", gap)
 		r.filter.Reset()
 	case gap >= 2*time.Second:
 		first = r.lastT.Add(time.Second)

@@ -15,9 +15,13 @@ import (
 // hub はDB保存後にブラウザへ配信するためのWebSocketハブ（Startで注入される）
 var hub *websocket.Hub
 
-// Start はTCPサーバーを起動する関数（goroutineで呼ぶ）
-func Start(port string, h *websocket.Hub) {
+// onSaved はセンサデータをDBへ保存した直後に呼ぶ関数（Startで注入される）。経路推定の計算のきっかけになる
+var onSaved func()
+
+// Start はTCPサーバーを起動する関数（goroutineで呼ぶ）。saved は保存成功のたびに呼ぶ（nilなら呼ばない）
+func Start(port string, h *websocket.Hub, saved func()) {
 	hub = h
+	onSaved = saved
 
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -69,6 +73,11 @@ func handleConnection(conn net.Conn) {
 		// 保存できたデータがあればWebSocket接続中のブラウザへ配信する
 		if saved > 0 && hub != nil {
 			hub.Broadcast(&req)
+		}
+
+		// 保存できたデータがあれば経路推定を動かす（待たずに戻る）
+		if saved > 0 && onSaved != nil {
+			onSaved()
 		}
 	}
 

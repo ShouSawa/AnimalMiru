@@ -48,19 +48,23 @@ func ServeEstimation(active func() int) http.HandlerFunc {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-
-		frames := make([]frame.Frame, 0, len(rows))
-		for _, row := range rows {
-			f, err := frame.FromRow(row, p.WindowSec, withMap, g.N())
-			if err != nil {
-				log.Printf("推定結果の変換失敗 ts=%s: %v", row.Ts, err)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			frames = append(frames, f)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"config_id": configID, "frames": frames})
+		writeFrames(w, configID, rows, p.WindowSec, withMap, g.N())
 	}
+}
+
+// writeFrames はDBの行を Frame にして {"config_id": N, "frames": [...]} で返す
+func writeFrames(w http.ResponseWriter, configID int, rows []repository.EstimationRow, windowSec int, withMap bool, n int) {
+	frames := make([]frame.Frame, 0, len(rows))
+	for _, row := range rows {
+		f, err := frame.FromRow(row, windowSec, withMap, n)
+		if err != nil {
+			log.Printf("推定結果の変換失敗 ts=%s: %v", row.Ts, err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		frames = append(frames, f)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"config_id": configID, "frames": frames})
 }
