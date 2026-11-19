@@ -385,20 +385,6 @@ export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
         </div>
         {calculating && <div className={styles.csvMessage}>計算中…</div>}
         {rangeMessage && <div className={styles.csvMessage}>{rangeMessage}</div>}
-        {rangeReady && (
-          <div className={styles.sliderRow}>
-            <input
-              type="range"
-              className={styles.slider}
-              min={startSec}
-              max={endSec - 1}
-              step={1}
-              value={sliderTs}
-              onChange={(e) => setSliderTs(Number(e.target.value))}
-            />
-            <span className={styles.sliderTime}>{formatTime(sliderTs)}</span>
-          </div>
-        )}
       </div>
 
       <div className={styles.section}>
@@ -435,6 +421,22 @@ export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
         <div className={styles.section}>
           <div className={styles.sectionTitle}>推定時刻</div>
           <div className={styles.timeBoard}>{estimateTs === null ? "反応なし" : formatTime(estimateTs)}</div>
+        </div>
+      )}
+
+      {/* 設定エリアの端から端まで使う。範囲が広いほど1秒あたりの幅が狭くなる */}
+      {rangeReady && (
+        <div className={styles.sliderRow}>
+          <input
+            type="range"
+            className={styles.slider}
+            min={startSec}
+            max={endSec - 1}
+            step={1}
+            value={sliderTs}
+            onChange={(e) => setSliderTs(Number(e.target.value))}
+          />
+          <span className={styles.sliderTime}>{formatTime(sliderTs)}</span>
         </div>
       )}
 

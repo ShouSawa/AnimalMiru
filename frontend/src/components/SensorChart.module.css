@@ -38,6 +38,9 @@
 }
 
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-weight: bold;
   font-size: 20px;
   padding: 8px 10px 6px 10px;
@@ -86,4 +89,11 @@
   color: #333;
   /* ラベル間隔を広げるため、Y軸の下の空白（左）とカード右の余白まで行を広げる */
   margin: 2px -6px 0 -28px;
+}
+.value {
+  padding: 0 6px;
+  border: 1px solid #000;
+  color: #000;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }

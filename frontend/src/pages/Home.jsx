@@ -76,6 +76,14 @@ function voltageRange(points) {
   return { min: (min / 255) * 5, max: (max / 255) * 5 };
 }
 
+// 各センサグラフの右上に表示する値(0〜255)を points から選ぶ。
+// リアルタイムは最新の値、過去確認は showTs の秒の最初の値（なければ null）
+function pickValue(points, realtime, showTs) {
+  if (!points?.length) return null;
+  if (realtime) return points[points.length - 1][1];
+  return points.find(([t]) => t >= showTs && t < showTs + 1)?.[1] ?? null;
+}
+
 export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
   const [appliedSettings, setAppliedSettings] = useState(loadSettings);
@@ -273,6 +281,7 @@ export default function Home() {
                 top={placeOf(chart, routeMode).top}
                 left={placeOf(chart, routeMode).left}
                 points={visibleSeries[node.node_id]?.[SENSOR_IDS[i]]}
+                value={pickValue(visibleSeries[node.node_id]?.[SENSOR_IDS[i]], realtime, rangeTs ?? pastFromSec)}
                 valueUnit={appliedSettings.valueUnit}
                 timeRangeSeconds={appliedSettings.timeRangeSeconds}
                 timeAxisMode={appliedSettings.timeAxisMode}
