@@ -12,6 +12,7 @@ import CalendarPicker from "./CalendarPicker";
 import { exportSensorCsv } from "./sensorCsv";
 
 const pad2 = (v) => String(v).padStart(2, "0");
+const formatTime = (sec) => new Date(sec * 1000).toLocaleTimeString("ja-JP", { hour12: false });
 
 function ToggleSection({ title, checked, onChange }) {
   return (
@@ -28,7 +29,8 @@ function ToggleSection({ title, checked, onChange }) {
   );
 }
 
-export default function SettingsPanel({ onApply }) {
+// estimateTs: 地図に表示中の推定位置の時刻（UNIX秒）。反応がなく表示するものがなければ null
+export default function SettingsPanel({ onApply, estimateTs }) {
   const [draft, setDraft] = useState(loadSettings);
   const [applied, setApplied] = useState(loadSettings);
   const [templateNames, setTemplateNames] = useState([]);
@@ -302,6 +304,22 @@ export default function SettingsPanel({ onApply }) {
         </button>
         {csvMessage && <div className={styles.csvMessage}>{csvMessage}</div>}
       </div>
+
+      {/* 位置は経路表示モードの地図に重ねるため、ONにしたときは経路表示モードも ON にする */}
+      <ToggleSection
+        title="位置表示"
+        checked={draft.positionVisible}
+        onChange={() =>
+          applyField(draft.positionVisible ? { positionVisible: false } : { positionVisible: true, routeMode: true })
+        }
+      />
+
+      {draft.positionVisible && (
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>推定時刻</div>
+          <div className={styles.timeBoard}>{estimateTs === null ? "反応なし" : formatTime(estimateTs)}</div>
+        </div>
+      )}
 
       <div className={styles.templateSection}>
         <input

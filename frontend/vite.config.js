@@ -55,7 +55,7 @@ function toSensorEntry({ base, r, dropSensor }) {
   const rounds = Math.max(...columns.map((c) => c.length))
   const values = []
   for (let i = 0; i < rounds; i++) columns.forEach((c) => values.push(c[i] ?? ''))
-  return { node_id: r.node_id, rssi_hex: r.rssi_hex, timestamp: base, payload_hex: values.join(',') }
+  return { node_id: r.node_id, rssi_hex: r.rssi_hex, timestamp: base, t0: base, payload_hex: values.join(',') }
 }
 
 // テストデータの1行を、Goの SensorLogRow と同じ形（DB画面の一覧の1行）に変換する

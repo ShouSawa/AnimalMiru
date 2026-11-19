@@ -175,3 +175,16 @@
 .saveButton:hover {
   background: #e8f5e9;
 }
+
+.timeBoard {
+  min-width: 90px;
+  padding: 4px 10px;
+  background: white;
+  border: 1px solid #2d6a4f;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #222;
+}

@@ -1,0 +1,136 @@
+// repository/estimator_config_list.go
+package repository
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/ShouSawa/AnimalMiru/backend/db"
+)
+
+// EstimatorConfig は estimator_config の1行
+type EstimatorConfig struct {
+	ConfigID      int       `db:"config_id" json:"config_id"`
+	Name          string    `db:"name" json:"name"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at"`
+	CodeVersion   *string   `db:"code_version" json:"code_version"`
+	Note          *string   `db:"note" json:"note"`
+	GridNx        int       `db:"grid_nx" json:"grid_nx"`
+	GridNy        int       `db:"grid_ny" json:"grid_ny"`
+	CellSizeM     float64   `db:"cell_size_m" json:"cell_size_m"`
+	GridXMinM     float64   `db:"grid_x_min_m" json:"grid_x_min_m"`
+	GridYMinM     float64   `db:"grid_y_min_m" json:"grid_y_min_m"`
+	MapEncoding   int       `db:"map_encoding" json:"map_encoding"`
+	WindowSec     int       `db:"window_sec" json:"window_sec"`
+	DelaySec      float64   `db:"delay_sec" json:"delay_sec"`
+	MinSamples    int       `db:"min_samples" json:"min_samples"`
+	ActiveThreshV float64   `db:"active_thresh_v" json:"active_thresh_v"`
+	FovHalfDeg    float64   `db:"fov_half_deg" json:"fov_half_deg"`
+	RangeM        float64   `db:"range_m" json:"range_m"`
+	D0M           float64   `db:"d0_m" json:"d0_m"`
+	SigmaObs      float64   `db:"sigma_obs" json:"sigma_obs"`
+	Epsilon       float64   `db:"epsilon" json:"epsilon"`
+	Beta          float64   `db:"beta" json:"beta"`
+	SigmaMoveM    float64   `db:"sigma_move_m" json:"sigma_move_m"`
+	QuietResetSec *int      `db:"quiet_reset_sec" json:"quiet_reset_sec"`
+}
+
+const selectConfig = `
+	SELECT config_id, name, created_at, code_version, note,
+	       grid_nx, grid_ny, cell_size_m, grid_x_min_m, grid_y_min_m, map_encoding,
+	       window_sec, delay_sec, min_samples, active_thresh_v,
+	       fov_half_deg, range_m, d0_m, sigma_obs, epsilon, beta,
+	       sigma_move_m, quiet_reset_sec
+	FROM estimator_config`
+
+// attrColumns は config_id・created_at・name 以外の列．attrs() の並びと一致させること
+var attrColumns = []struct{ name, typ string }{
+	{"code_version", "text"}, {"note", "text"},
+	{"grid_nx", "smallint"}, {"grid_ny", "smallint"}, {"cell_size_m", "real"},
+	{"grid_x_min_m", "real"}, {"grid_y_min_m", "real"}, {"map_encoding", "smallint"},
+	{"window_sec", "smallint"}, {"delay_sec", "real"}, {"min_samples", "smallint"},
+	{"active_thresh_v", "real"}, {"fov_half_deg", "real"}, {"range_m", "real"},
+	{"d0_m", "real"}, {"sigma_obs", "real"}, {"epsilon", "real"}, {"beta", "real"},
+	{"sigma_move_m", "real"}, {"quiet_reset_sec", "smallint"},
+}
+
+func (c EstimatorConfig) attrs() []any {
+	return []any{c.CodeVersion, c.Note, c.GridNx, c.GridNy, c.CellSizeM, c.GridXMinM, c.GridYMinM,
+		c.MapEncoding, c.WindowSec, c.DelaySec, c.MinSamples, c.ActiveThreshV, c.FovHalfDeg, c.RangeM,
+		c.D0M, c.SigmaObs, c.Epsilon, c.Beta, c.SigmaMoveM, c.QuietResetSec}
+}
+
+// GetConfig は config_id の設定を返す
+func GetConfig(id int) (EstimatorConfig, error) {
+	var c EstimatorConfig
+	err := db.DB.Get(&c, selectConfig+` WHERE config_id = $1`, id)
+	return c, err
+}
+
+// ListConfigs は全設定を config_id の昇順で返す
+func ListConfigs() ([]EstimatorConfig, error) {
+	configs := []EstimatorConfig{}
+	err := db.DB.Select(&configs, selectConfig+` ORDER BY config_id`)
+	return configs, err
+}
+
+// CreateConfig は c の内容で設定を追加し，baseID の estimator_sensor（12行）を引き継ぐ．
+// name と created_at 以外の全属性が同じ設定が既にあれば追加せず，その config_id と created=false を返す．
+// name が空か既存と重なるときは，時刻を付けた名前にする
+func CreateConfig(c EstimatorConfig, baseID int) (id int, created bool, err error) {
+	tx, err := db.DB.Beginx()
+	if err != nil {
+		return 0, false, err
+	}
+	defer tx.Rollback()
+
+	args := c.attrs()
+	conds := make([]string, len(attrColumns))
+	cols := make([]string, len(attrColumns))
+	holders := make([]string, len(attrColumns))
+	for i, col := range attrColumns {
+		conds[i] = fmt.Sprintf("%s IS NOT DISTINCT FROM $%d::%s", col.name, i+1, col.typ)
+		cols[i] = col.name
+		holders[i] = fmt.Sprintf("$%d", i+2) // $1 は name
+	}
+
+	err = tx.Get(&id, `SELECT config_id FROM estimator_config WHERE `+strings.Join(conds, " AND ")+` ORDER BY config_id LIMIT 1`, args...)
+	if err == nil {
+		return id, false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, err
+	}
+
+	name := strings.TrimSpace(c.Name)
+	var exists bool
+	if err := tx.Get(&exists, `SELECT EXISTS (SELECT 1 FROM estimator_config WHERE name = $1)`, name); err != nil {
+		return 0, false, err
+	}
+	if name == "" || exists {
+		if name == "" {
+			name = "config"
+		}
+		name += "-" + time.Now().In(time.FixedZone("JST", 9*3600)).Format("20060102-150405")
+	}
+
+	err = tx.Get(&id, `INSERT INTO estimator_config (name, `+strings.Join(cols, ", ")+`)
+		VALUES ($1, `+strings.Join(holders, ", ")+`) RETURNING config_id`, append([]any{name}, args...)...)
+	if err != nil {
+		return 0, false, err
+	}
+	res, err := tx.Exec(`
+		INSERT INTO estimator_sensor (config_id, sensor_no, noise_floor, upper_level)
+		SELECT $1, sensor_no, noise_floor, upper_level FROM estimator_sensor WHERE config_id = $2
+	`, id, baseID)
+	if err != nil {
+		return 0, false, err
+	}
+	if n, _ := res.RowsAffected(); n != 12 {
+		return 0, false, fmt.Errorf("基にする config_id=%d の estimator_sensor が12行ではありません", baseID)
+	}
+	return id, true, tx.Commit()
+}

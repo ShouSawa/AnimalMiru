@@ -31,6 +31,9 @@ func main() {
 	// TCPサーバーを起動（9000番）。保存成功時はhub経由でブラウザへ配信する
 	go tcp.Start("9000", hub)
 
+	// 経路推定を起動する。ESTIMATOR_CONFIG_ID が未設定・設定が不正なら推定だけ起動しない
+	activeConfig, activateConfig := startEstimator(hub)
+
 	// WebSocketサーバーを起動（8081番、Nginx経由で /ws/realtime にマッピングする想定）
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/realtime", websocket.ServeWS(hub))
@@ -39,6 +42,9 @@ func main() {
 	mux.HandleFunc("/api/sensor-data/series", handler.ServeSeries())
 	mux.HandleFunc("/api/sensor-data/logs", handler.ServeLogs())
 	mux.HandleFunc("/api/templates", handler.ServeTemplates())
+	mux.HandleFunc("/api/estimation", handler.ServeEstimation(activeConfig))
+	mux.HandleFunc("/api/estimator/configs", handler.ServeEstimatorConfigs(activeConfig, activateConfig))
+	mux.HandleFunc("/api/estimator/active", handler.ServeEstimatorActive(activateConfig))
 	go func() {
 		log.Println("WebSocketサーバー起動: ポート8081で待ち受け中（/ws/realtime）")
 		if err := http.ListenAndServe(":8081", mux); err != nil {
