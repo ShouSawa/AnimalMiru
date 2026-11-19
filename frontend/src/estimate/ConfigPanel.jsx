@@ -93,6 +93,7 @@ export default function ConfigPanel() {
               {data.configs.map((c) => (
                 <option key={c.config_id} value={c.config_id}>
                   {c.config_id}: {c.name}
+                  {c.main ? "（main）" : ""}
                 </option>
               ))}
             </select>
