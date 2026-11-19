@@ -4,15 +4,49 @@ import {
   TIME_RANGE_OPTIONS,
   TIME_AXIS_MODE_OPTIONS,
   VALUE_UNIT_OPTIONS,
+  formatDuration,
   loadSettings,
   saveSettings,
 } from "./sensorSettings";
 import ClockPicker from "./ClockPicker";
 import CalendarPicker from "./CalendarPicker";
 import { exportSensorCsv } from "./sensorCsv";
+import { recalcRange } from "../estimate/api";
 
 const pad2 = (v) => String(v).padStart(2, "0");
 const formatTime = (sec) => new Date(sec * 1000).toLocaleTimeString("ja-JP", { hour12: false });
+const toUnixSec = ({ year, month, day, hour, minute, second }) =>
+  new Date(year, month - 1, day, hour, minute, second).getTime() / 1000;
+const toDateTime = (sec) => {
+  const d = new Date(sec * 1000);
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    hour: d.getHours(),
+    minute: d.getMinutes(),
+    second: d.getSeconds(),
+  };
+};
+
+// 日付（YYYY-MM-DD）にデータがある時刻（その日の0時からの秒数）の一覧を取得する
+function useDataSeconds(dateKey) {
+  const [dataSeconds, setDataSeconds] = useState([]);
+  useEffect(() => {
+    // 日付を続けて切り替えたときに、古い日付の応答で上書きしないようにする
+    let ignore = false;
+    fetch(`/api/sensor-data/availability?date=${dateKey}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!ignore) setDataSeconds(data.seconds ?? []);
+      })
+      .catch((err) => console.error("データ時刻一覧取得失敗:", err));
+    return () => {
+      ignore = true;
+    };
+  }, [dateKey]);
+  return dataSeconds;
+}
 
 function ToggleSection({ title, checked, onChange }) {
   return (
@@ -30,20 +64,38 @@ function ToggleSection({ title, checked, onChange }) {
 }
 
 // estimateTs: 地図に表示中の推定位置の時刻（UNIX秒）。反応がなく表示するものがなければ null
-export default function SettingsPanel({ onApply, estimateTs }) {
+// onRangeTs: 範囲経路計算のスライダー位置（UNIX秒）を伝える。計算済みの範囲がないときは null
+export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
   const [draft, setDraft] = useState(loadSettings);
   const [applied, setApplied] = useState(loadSettings);
   const [templateNames, setTemplateNames] = useState([]);
   const [templateName, setTemplateName] = useState("");
   const [templateMessage, setTemplateMessage] = useState("");
-  // カレンダー・時計で色付けする、データが存在する日付と時刻（選択中の日の0時からの秒数）
+  // カレンダー・時計で色付けする、データが存在する日付
   const [dataDates, setDataDates] = useState([]);
-  const [dataSeconds, setDataSeconds] = useState([]);
   const [csvExporting, setCsvExporting] = useState(false);
   const [csvMessage, setCsvMessage] = useState("");
+  // 範囲経路計算を終えた範囲（UNIX秒）とスライダーの位置
+  const [calculated, setCalculated] = useState(null);
+  const [sliderTs, setSliderTs] = useState(0);
+  const [calculating, setCalculating] = useState(false);
+  const [rangeMessage, setRangeMessage] = useState("");
 
   const { year, month, day, hour, minute, second } = draft.startDateTime;
   const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
+  // 表示終了時間は、表示開始時間に時間の範囲を足した時刻
+  const startSec = toUnixSec(draft.startDateTime);
+  const endSec = startSec + draft.timeRangeSeconds;
+  const endDateTime = toDateTime(endSec);
+  const endDateKey = `${endDateTime.year}-${pad2(endDateTime.month)}-${pad2(endDateTime.day)}`;
+  const dataSeconds = useDataSeconds(dateKey);
+  const endDataSeconds = useDataSeconds(endDateKey);
+  const rangeReady =
+    !draft.realtime && calculated?.from === startSec && calculated?.to === endSec;
+  // 時間の範囲の選択肢にない秒数（表示終了時間から決まった値）は、その値の項目を加えて表示する
+  const rangeOptions = TIME_RANGE_OPTIONS.some((opt) => opt.value === draft.timeRangeSeconds)
+    ? TIME_RANGE_OPTIONS
+    : [...TIME_RANGE_OPTIONS, { value: draft.timeRangeSeconds, label: formatDuration(draft.timeRangeSeconds) }];
 
   const refreshTemplateNames = () =>
     fetch("/api/templates")
@@ -59,19 +111,10 @@ export default function SettingsPanel({ onApply, estimateTs }) {
       .catch((err) => console.error("データ日付一覧取得失敗:", err));
   }, []);
 
+  // 範囲経路計算の済んでいる範囲のときだけ、スライダー位置を地図の推定位置に反映する
   useEffect(() => {
-    // 日付を続けて切り替えたときに、古い日付の応答で上書きしないようにする
-    let ignore = false;
-    fetch(`/api/sensor-data/availability?date=${dateKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!ignore) setDataSeconds(data.seconds ?? []);
-      })
-      .catch((err) => console.error("データ時刻一覧取得失敗:", err));
-    return () => {
-      ignore = true;
-    };
-  }, [dateKey]);
+    onRangeTs(rangeReady ? sliderTs : null);
+  }, [onRangeTs, rangeReady, sliderTs]);
 
   const applySettings = (settings) => {
     setApplied(settings);
@@ -93,8 +136,37 @@ export default function SettingsPanel({ onApply, estimateTs }) {
     setDraft((prev) => ({ ...prev, startDateTime: { ...prev.startDateTime, ...fields } }));
   };
 
+  // 表示終了時間を変えたら、表示開始時間からの差を時間の範囲にする（開始より後のときだけ）。
+  // 開始時間と同じく、「選択した日時を適用」を押すまで反映しない
+  const updateEnd = (fields) => {
+    const seconds = toUnixSec({ ...endDateTime, ...fields }) - startSec;
+    if (seconds > 0) setDraft((prev) => ({ ...prev, timeRangeSeconds: seconds }));
+  };
+
   const handleApply = () => {
-    applySettings({ ...applied, startDateTime: draft.startDateTime });
+    applySettings({ ...applied, startDateTime: draft.startDateTime, timeRangeSeconds: draft.timeRangeSeconds });
+  };
+
+  // 表示開始時間から表示終了時間までを1秒ごとに計算し、結果が地図に見えるよう位置表示をONにする
+  const handleRangeCalc = async () => {
+    setCalculating(true);
+    setRangeMessage("");
+    try {
+      await recalcRange(startSec, endSec);
+      applyField({
+        startDateTime: draft.startDateTime,
+        timeRangeSeconds: draft.timeRangeSeconds,
+        positionVisible: true,
+        routeMode: true,
+      });
+      setCalculated({ from: startSec, to: endSec });
+      setSliderTs(startSec);
+    } catch (err) {
+      console.error("範囲経路計算失敗:", err);
+      setRangeMessage("範囲経路計算に失敗しました");
+    } finally {
+      setCalculating(false);
+    }
   };
 
   // 設定エリアに表示中の開始時間（「適用」前でも）から、時間の範囲の分を出力する
@@ -161,7 +233,9 @@ export default function SettingsPanel({ onApply, estimateTs }) {
     }
   };
 
-  const startPending = JSON.stringify(draft.startDateTime) !== JSON.stringify(applied.startDateTime);
+  const startPending =
+    JSON.stringify(draft.startDateTime) !== JSON.stringify(applied.startDateTime) ||
+    draft.timeRangeSeconds !== applied.timeRangeSeconds;
 
   return (
     <div className={styles.panel}>
@@ -219,7 +293,7 @@ export default function SettingsPanel({ onApply, estimateTs }) {
             value={draft.timeRangeSeconds}
             onChange={(e) => applyField({ timeRangeSeconds: Number(e.target.value) })}
           >
-            {TIME_RANGE_OPTIONS.map((opt) => (
+            {rangeOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -282,6 +356,49 @@ export default function SettingsPanel({ onApply, estimateTs }) {
             onChange={updateStart}
           />
         </div>
+
+        <div className={`${styles.fieldLabel} ${styles.endLabel}`}>表示終了時間</div>
+        <div className={styles.dateRow}>
+          <CalendarPicker
+            year={endDateTime.year}
+            month={endDateTime.month}
+            day={endDateTime.day}
+            dataDates={dataDates}
+            disabled={draft.realtime}
+            onChange={updateEnd}
+          />
+          <ClockPicker
+            hour={endDateTime.hour}
+            minute={endDateTime.minute}
+            second={endDateTime.second}
+            dataSeconds={endDataSeconds}
+            disabled={draft.realtime}
+            onChange={updateEnd}
+          />
+          <button
+            className={styles.saveButton}
+            disabled={draft.realtime || calculating}
+            onClick={handleRangeCalc}
+          >
+            範囲経路計算
+          </button>
+        </div>
+        {calculating && <div className={styles.csvMessage}>計算中…</div>}
+        {rangeMessage && <div className={styles.csvMessage}>{rangeMessage}</div>}
+        {rangeReady && (
+          <div className={styles.sliderRow}>
+            <input
+              type="range"
+              className={styles.slider}
+              min={startSec}
+              max={endSec - 1}
+              step={1}
+              value={sliderTs}
+              onChange={(e) => setSliderTs(Number(e.target.value))}
+            />
+            <span className={styles.sliderTime}>{formatTime(sliderTs)}</span>
+          </div>
+        )}
       </div>
 
       <div className={styles.section}>

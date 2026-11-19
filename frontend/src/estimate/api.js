@@ -12,3 +12,15 @@ export async function fetchFrames(from, to, withMap = true) {
   if (!res.ok) throw new Error(`/api/estimation: ${res.status}`);
   return (await res.json()).frames;
 }
+
+// 範囲経路計算: ts が [from, to)（UNIX秒の整数）の各秒の推定結果を計算して保存する。
+// 既に保存のある秒はサーバーが再保存せず、保存済みの結果を使う
+export async function recalcRange(from, to) {
+  const res = await fetch(`/api/estimation/recalc-range?from=${from}&to=${to}`, { method: "POST" });
+  if (!res.ok) throw new Error(`/api/estimation/recalc-range: ${res.status}`);
+}
+
+// 計算済みの ts（UNIX秒の整数）の推定結果を1件取得する（再計算はしない。反応なしなら null）
+export async function fetchSavedFrame(ts) {
+  return (await fetchFrames(ts, ts + 1))[0] ?? null;
+}

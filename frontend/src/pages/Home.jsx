@@ -88,8 +88,10 @@ export default function Home() {
   const toSec = realtime ? nowMs / 1000 - REALTIME_DELAY_SECONDS : pastFromSec + timeRangeSeconds;
   const fromSec = toSec - timeRangeSeconds;
   const startDateTime = new Date(fromSec * 1000);
+  // 範囲経路計算のスライダー位置（UNIX秒）。計算済みの範囲がなければ null
+  const [rangeTs, setRangeTs] = useState(null);
   // 位置表示がONのときの推定結果。地図に重ねるのは座標が地図の0〜100%と一致する経路表示モードだけ
-  const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec });
+  const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec, rangeTs });
   // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
   const [series, setSeries] = useState({});
 
@@ -222,7 +224,7 @@ export default function Home() {
     <div className={styles.page}>
       <h2>テストフィールド - 行動経路表示</h2>
 
-      <SettingsPanel onApply={setAppliedSettings} estimateTs={frame?.ts ?? null} />
+      <SettingsPanel onApply={setAppliedSettings} onRangeTs={setRangeTs} estimateTs={frame?.ts ?? null} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
       <div className={`${styles.mapScroll} ${routeMode ? styles.mapScrollRoute : ""}`}>

@@ -52,3 +52,11 @@ export function saveSettings(settings) {
     // ストレージが使えない環境では保存をあきらめる
   }
 }
+
+// 秒数を「10分31秒」「1時間」のように表示する
+export function formatDuration(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h ? `${h}時間` : ""}${m ? `${m}分` : ""}${s ? `${s}秒` : ""}`;
+}

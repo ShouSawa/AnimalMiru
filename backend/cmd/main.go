@@ -44,6 +44,7 @@ func main() {
 	mux.HandleFunc("/api/templates", handler.ServeTemplates())
 	mux.HandleFunc("/api/estimation", handler.ServeEstimation())
 	mux.HandleFunc("/api/estimation/recalc", handler.ServeEstimationRecalc())
+	mux.HandleFunc("/api/estimation/recalc-range", handler.ServeEstimationRecalcRange())
 	mux.HandleFunc("/api/estimator/configs", handler.ServeEstimatorConfigs(activateConfig))
 	mux.HandleFunc("/api/estimator/active", handler.ServeEstimatorActive(activateConfig))
 	go func() {
