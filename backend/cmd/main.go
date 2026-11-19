@@ -28,8 +28,8 @@ func main() {
 	hub := websocket.NewHub()
 	go hub.Run()
 
-	// 経路推定を起動する。ESTIMATOR_CONFIG_ID が未設定・設定が不正なら推定だけ起動しない
-	activeConfig, activateConfig, notifyEstimator := startEstimator(hub)
+	// 経路推定を起動する。main=true の設定が無い・不正なら推定だけ起動しない
+	activateConfig, notifyEstimator := startEstimator(hub)
 
 	// TCPサーバーを起動（9000番）。保存成功時はhub経由でブラウザへ配信し、経路推定の計算を起こす
 	go tcp.Start("9000", hub, notifyEstimator)
@@ -42,9 +42,9 @@ func main() {
 	mux.HandleFunc("/api/sensor-data/series", handler.ServeSeries())
 	mux.HandleFunc("/api/sensor-data/logs", handler.ServeLogs())
 	mux.HandleFunc("/api/templates", handler.ServeTemplates())
-	mux.HandleFunc("/api/estimation", handler.ServeEstimation(activeConfig))
-	mux.HandleFunc("/api/estimation/recalc", handler.ServeEstimationRecalc(activeConfig))
-	mux.HandleFunc("/api/estimator/configs", handler.ServeEstimatorConfigs(activeConfig, activateConfig))
+	mux.HandleFunc("/api/estimation", handler.ServeEstimation())
+	mux.HandleFunc("/api/estimation/recalc", handler.ServeEstimationRecalc())
+	mux.HandleFunc("/api/estimator/configs", handler.ServeEstimatorConfigs(activateConfig))
 	mux.HandleFunc("/api/estimator/active", handler.ServeEstimatorActive(activateConfig))
 	go func() {
 		log.Println("WebSocketサーバー起動: ポート8081で待ち受け中（/ws/realtime）")

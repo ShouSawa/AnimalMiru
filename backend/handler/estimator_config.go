@@ -26,9 +26,9 @@ func validateConfig(c repository.EstimatorConfig) error {
 }
 
 // ServeEstimatorConfigs は /api/estimator/configs のHTTPハンドラを返す。
-// GET: 全設定と使用中の config_id を返す
-// POST {"base_config_id": N, "config": {...}}: 設定を追加して使用中にする。同じ設定が既にあればそれを使用中にする
-func ServeEstimatorConfigs(active func() int, activate func(int) error) http.HandlerFunc {
+// GET: 全設定を返す（使用中の設定は main=true）
+// POST {"base_config_id": N, "config": {...}}: 設定を追加して main（使用中）にする。同じ設定が既にあればそれを main にする
+func ServeEstimatorConfigs(activate func(int) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -39,7 +39,7 @@ func ServeEstimatorConfigs(active func() int, activate func(int) error) http.Han
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"active_config_id": active(), "configs": configs})
+			json.NewEncoder(w).Encode(map[string]any{"configs": configs})
 		case http.MethodPost:
 			var req struct {
 				BaseConfigID int                        `json:"base_config_id"`

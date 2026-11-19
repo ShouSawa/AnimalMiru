@@ -36,17 +36,18 @@ type EstimatorConfig struct {
 	Beta          float64   `db:"beta" json:"beta"`
 	SigmaMoveM    float64   `db:"sigma_move_m" json:"sigma_move_m"`
 	QuietResetSec *int      `db:"quiet_reset_sec" json:"quiet_reset_sec"`
+	Main          bool      `db:"main" json:"main"`
 }
 
 const selectConfig = `
-	SELECT config_id, name, created_at, code_version, note,
+	SELECT config_id, name, created_at, code_version, note, main,
 	       grid_nx, grid_ny, cell_size_m, grid_x_min_m, grid_y_min_m, map_encoding,
 	       window_sec, delay_sec, min_samples, active_thresh_v,
 	       fov_half_deg, range_m, d0_m, sigma_obs, epsilon, beta,
 	       sigma_move_m, quiet_reset_sec
 	FROM estimator_config`
 
-// attrColumns は config_id・created_at・name 以外の列．attrs() の並びと一致させること
+// attrColumns は config_id・created_at・name・main 以外の列．attrs() の並びと一致させること
 var attrColumns = []struct{ name, typ string }{
 	{"code_version", "text"}, {"note", "text"},
 	{"grid_nx", "smallint"}, {"grid_ny", "smallint"}, {"cell_size_m", "real"},
@@ -68,6 +69,30 @@ func GetConfig(id int) (EstimatorConfig, error) {
 	var c EstimatorConfig
 	err := db.DB.Get(&c, selectConfig+` WHERE config_id = $1`, id)
 	return c, err
+}
+
+// MainConfigID は main=true の config_id を返す（無ければ sql.ErrNoRows）
+func MainConfigID() (int, error) {
+	var id int
+	err := db.DB.Get(&id, `SELECT config_id FROM estimator_config WHERE main`)
+	return id, err
+}
+
+// SetMainConfig は main=true を id の設定へ付け替える．
+// true は1行だけ（部分一意インデックス）なので，先に旧 main を false にしてから id を true にする
+func SetMainConfig(id int) error {
+	tx, err := db.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE estimator_config SET main = false WHERE main AND config_id <> $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE estimator_config SET main = true WHERE config_id = $1 AND NOT main`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // ListConfigs は全設定を config_id の昇順で返す

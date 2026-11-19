@@ -6,6 +6,7 @@ erDiagram
     timestamptz created_at "作成日時"
     text code_version "計算プログラムの版"
     text note "メモ"
+    boolean main "経路推定に使う設定か(trueは1行だけ)"
     smallint grid_nx "格子の東西セル数"
     smallint grid_ny "格子の南北セル数"
     real cell_size_m "1セルの一辺[m]"

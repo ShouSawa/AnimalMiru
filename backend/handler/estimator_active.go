@@ -8,7 +8,7 @@ import (
 )
 
 // ServeEstimatorActive は POST /api/estimator/active {"config_id": N} のHTTPハンドラを返す。
-// 以降の経路推定を config_id の設定で行う（信念は一様から再開する）
+// config_id の設定を main にし、以降の経路推定をその設定で行う（信念は一様から再開する）
 func ServeEstimatorActive(activate func(int) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
