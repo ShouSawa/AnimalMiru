@@ -3,12 +3,12 @@ async function checkOk(res) {
   return res;
 }
 
-// 全設定と使用中の config_id を取得する: { active_config_id, configs }
+// 全設定を取得する（使用中の設定は main=true）: { configs }
 export async function fetchConfigs() {
   return (await checkOk(await fetch("/api/estimator/configs"))).json();
 }
 
-// 以降の推定に使う config_id を切り替える
+// config_id を main にして、以降の推定に使う設定を切り替える
 export async function postActive(configId) {
   await checkOk(
     await fetch("/api/estimator/active", {

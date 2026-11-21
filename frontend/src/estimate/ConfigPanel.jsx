@@ -6,7 +6,7 @@ import { fetchConfigs, postActive, postConfig } from "./configApi";
 
 // 経路推定のパラメータ（estimator_config と estimator_sensor）の表示・編集・使用する設定番号の選択
 export default function ConfigPanel() {
-  const [data, setData] = useState({ active_config_id: null, configs: [] });
+  const [data, setData] = useState({ configs: [] });
   // 編集中の属性だけが入る: { 属性名: 入力中の文字列 }
   const [drafts, setDrafts] = useState({});
   const [message, setMessage] = useState("");
@@ -24,7 +24,7 @@ export default function ConfigPanel() {
     reload();
   }, []);
 
-  const current = data.configs.find((c) => c.config_id === data.active_config_id);
+  const current = data.configs.find((c) => c.main);
 
   const run = async (action) => {
     setBusy(true);
@@ -105,6 +105,7 @@ export default function ConfigPanel() {
                 {data.configs.map((c) => (
                   <option key={c.config_id} value={c.config_id}>
                     {c.config_id}: {c.name}
+                    {c.main ? "（main）" : ""}
                   </option>
                 ))}
               </select>

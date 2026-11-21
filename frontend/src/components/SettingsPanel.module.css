@@ -188,3 +188,25 @@
   text-align: center;
   color: #222;
 }
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+}
+
+.sliderTime {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #222;
+}
+
+.endLabel {
+  margin-top: 8px;
+}

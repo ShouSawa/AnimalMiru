@@ -16,6 +16,14 @@ function formatTick(voltage, valueUnit) {
   return String(voltage);
 }
 
+// センサ値(0〜255)を、指定の単位の電圧値ラベルに変換する（値がなければ「−」）
+function formatValue(value, valueUnit) {
+  if (value === null) return "−";
+  if (valueUnit === "hex") return value.toString(16).toUpperCase().padStart(2, "0");
+  if (valueUnit === "decimal") return String(value);
+  return `${((value / 255) * 5).toFixed(2)}V`;
+}
+
 // 開始時刻からの経過秒数を「分:秒」表記に変換する
 function formatClockTick(date) {
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -82,6 +90,7 @@ export default function SensorChart({
   top,
   left,
   points = [], // [[UNIX秒, 値(0〜255)], ...]（時刻の昇順）
+  value = null, // 右上に表示する値(0〜255)。なければ null
   valueUnit = "voltage", // "voltage" | "hex" | "decimal"
   yTicks = [5, 3, 1],
   timeRangeSeconds = 40, // 横軸の表示範囲（設定エリアから変更可能）
@@ -146,7 +155,10 @@ export default function SensorChart({
   const renderContent = (buckets, lineWidth) => (
     <>
       <div className={styles.corner} />
-      <div className={styles.header} style={{ color }}>{label}</div>
+      <div className={styles.header} style={{ color }}>
+        <span>{label}</span>
+        <span className={styles.value}>{formatValue(value, valueUnit)}</span>
+      </div>
       <div className={styles.body}>
         <div className={styles.yAxis}>
           {yTicks.map((t) => {

@@ -297,9 +297,10 @@ $$
 
 ### 7.2 ループ
 
-- 毎秒の切り替わり直後に起動（ティッカーを整数秒に合わせる）．`lastT` を持つ．
+- **センサデータの到着（TCP受信・DB保存成功）をきっかけに起動する**（時計のティッカーは使わない）．TCPハンドラが `Runner.Notify()` を呼び，常駐の goroutine が `Tick` を実行する．合図は容量1のチャネルでまとめ，計算中に何度呼ばれても終了後に1回だけ `Tick` が走る（TCPの受信は待たされない）．`lastT` を持つ．
+- 計算する窓は，起動した時刻の `T=⌊now−window_sec−delay_sec⌋`（第7.1節）まで．`delay_sec` は他のノード・センサのデータが揃うのを待つために残す．
 - 起動直後: 最初のTは現在時刻から求める．**過去には遡らない**（一様から開始）．
-- 取りこぼし（前回から2秒以上進んだ）: 欠けたTを順番に処理する．ただし10秒を超える遅れは，最新のTへ飛び，信念を一様に戻す（ログ）．
+- 取りこぼし（前回から2秒以上進んだ）: 欠けたTを順番に処理する．ただし10秒を超えて空いたときは，最新のTへ飛び，信念を一様に戻す（ログ）．データが10秒以上届かなかったあとの再開もこれに当たる．
 - 1つのTの処理が1秒を超えたら `log.Printf("1秒以内に計算失敗: T=%s 処理時間=%s")`．
 - すでに結果がある（主キー衝突）場合は `ON CONFLICT DO NOTHING`．**既に計算済みの秒は再計算しない．遅れて届いたデータは無視する**．
 - `ESTIMATOR_CONFIG_ID` が未設定なら推定を起動せず，ログに出して他の機能（受信・配信・API）は通常どおり動かす．設定が見つからない・格子が60×60×0.5 m×−15 m以外・`map_encoding`≠1 のときは起動を中止（ログ）する．
@@ -472,6 +473,18 @@ $$
 
 設定エリアの「表示開始時間」を整数秒に切り下げた時刻 T とし，`ts = T` のフレームを表示する（無ければ「この秒は反応なし（保存なし）」と表示）．**要確認**: 将来，グラフ範囲内を選んで見られるようにしてもよいが，今回は不要．
 
+**計算のタイミング**: 「指定した日時を適用」ボタンとテンプレ選択で表示開始時間が変わったときに，フロントが `POST /api/estimation/recalc?ts=T[&config_id=N]` を呼ぶ．サーバーは次の順で処理する．
+
+1. `estimation_result` に（config_id，ts=T）の行があれば，それを返す（**再計算しない**）．
+2. 無く，かつ T が `TargetStart(now)` 以前（計算に必要なデータが揃っている時刻）なら，`runner.Replay` で再計算する．T の `PastWarmupSec`（30）秒前から一様な信念で1秒ずつ進めて T に追いつく．DBへの読み出しは追いつく間の分を1回にまとめ，秒ごとの切り出しはメモリ上で行う．
+3. T が保存対象（active=true）なら，**T の行だけ**を保存して返す（追いつくための秒は保存しない．`ON CONFLICT DO NOTHING`）．T が反応なしなら何も保存せず，フレームは空（「反応なし」）．配信（WebSocket）はしない．
+4. T が `TargetStart(now)` より新しいときは再計算しない（データが揃う前の結果を保存して，常駐処理の結果を妨げないため）．
+
+注意:
+- 追いつきの信念は30秒分の履歴しか持たないので，常駐処理が長い履歴から出した結果とは少し違いうる．
+- 反応なしの秒は行が保存されないので，その時刻を開くたびに再計算する（1回のDB読み出しと30秒分の計算）．
+- 再計算した行の `event_id` は，その config の最大 `event_id` + 1 から始まる（連続する秒どうしを同じ通過にまとめる保証はない）．
+
 ### 10.3 将来の最適化（今回は実装しない）
 
 BeagleBone→サーバーはTCPで順序が保たれ，`node_timestamp` は受信順に単調に増えるので，「窓の終わり + δ_fix + 0.35 s 以降の node_timestamp が1つでも届いたら，その窓は完成」と判断して早く計算できる（典型的な遅れ約1.7 s）．ただし，グラフ側も右端を「届いた最新サンプルの時刻」に追従させる必要がある．効果は表示の遅れの短縮のみなので，後回しでよい．
@@ -522,6 +535,7 @@ backend/
 │   ├─ stats.go
 │   ├─ event.go
 │   ├─ step.go
+│   ├─ replay.go                        ★ 過去の窓の再計算（第10.2節）
 │   └─ loop.go
 ├─ repository/
 │   ├─ sensor_rows.go                   ★ 窓のsensor_reading取得
@@ -609,7 +623,8 @@ cmd/main     ← runner, handler, websocket, ...
 | stats.go | サンプル列→12センサの統計 | `ToStats(m map[samples.Key][]samples.Sample) [12]*estimator.Stat` | 30 |
 | event.go | event_idの採番（第7.4節） | `EventCounter`，`(e *EventCounter) Next(t time.Time) int` | 25 |
 | step.go | 1つの窓の処理（第7.3節）．失敗はerrorで返す | `(r *Runner) Process(T time.Time) error` | 60 |
-| loop.go | 毎秒のループ・取りこぼし・遅延ログ（第7.2節） | `Runner`，`New(...) *Runner`，`(r *Runner) Run(ctx context.Context)` | 55 |
+| replay.go | 過去の窓の再計算（第10.2節）．T の30秒前から一様な信念で追いつき，T の行だけ保存する | `PastWarmupSec`，`Replay(deps，configID，g，p，cal，lastEventID，T) error` | 45 |
+| loop.go | データ到着をきっかけにしたループ・取りこぼし・遅延ログ（第7.2節） | `Runner`，`New(...) *Runner`，`(r *Runner) Notify()`，`(r *Runner) Run(ctx context.Context)` | 65 |
 
 **repository/**
 
@@ -636,7 +651,7 @@ cmd/main     ← runner, handler, websocket, ...
 | estimate/geometry.js | 定数（FIELD_SIZE_M=30，NX=60，CELL=0.5）と，座標→地図上の%（x，y）の変換．`toLeftPct(x)`=(x+15)/30·100，`toTopPct(y)`=(15−y)/30·100 | 20 |
 | estimate/api.js | `fetchFrames(from，to，withMap)`（`/api/estimation`） | 25 |
 | estimate/pickFrame.js | 第10.1節の選択規則: `pickFrame(frames，edgeSec，windowSec=1)` = `ts+windowSec ≤ edgeSec` の最大ts | 15 |
-| estimate/usePastFrame.js | 過去確認用．開始時間のフレームを1件取得 | 30 |
+| estimate/usePastFrame.js | 過去確認用．開始時間のフレームを1件取得（無ければサーバーが再計算．第10.2節） | 30 |
 | estimate/useRealtimeFrame.js | リアルタイム用．初回に直近30秒を取得し，WebSocketの `estimation` で追加．30秒より古いものは捨てる．`pickFrame` で選ぶ | 60 |
 | estimate/useEstimateFrame.js | 上の2つを `realtime` で切り替える窓口（フックは両方を `enabled` 付きで呼ぶ） | 15 |
 | estimate/EstimateLayer.jsx | 60×60の `<canvas>` に塗る（第12.3節）．推定位置（est）の印と，radius90の円（点線）を重ねる | 55 |

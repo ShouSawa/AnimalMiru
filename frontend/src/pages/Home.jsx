@@ -76,6 +76,14 @@ function voltageRange(points) {
   return { min: (min / 255) * 5, max: (max / 255) * 5 };
 }
 
+// 各センサグラフの右上に表示する値(0〜255)を points から選ぶ。
+// リアルタイムは最新の値、過去確認は showTs の秒の最初の値（なければ null）
+function pickValue(points, realtime, showTs) {
+  if (!points?.length) return null;
+  if (realtime) return points[points.length - 1][1];
+  return points.find(([t]) => t >= showTs && t < showTs + 1)?.[1] ?? null;
+}
+
 export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
   const [appliedSettings, setAppliedSettings] = useState(loadSettings);
@@ -88,8 +96,10 @@ export default function Home() {
   const toSec = realtime ? nowMs / 1000 - REALTIME_DELAY_SECONDS : pastFromSec + timeRangeSeconds;
   const fromSec = toSec - timeRangeSeconds;
   const startDateTime = new Date(fromSec * 1000);
+  // 範囲経路計算のスライダー位置（UNIX秒）。計算済みの範囲がなければ null
+  const [rangeTs, setRangeTs] = useState(null);
   // 位置表示がONのときの推定結果。地図に重ねるのは座標が地図の0〜100%と一致する経路表示モードだけ
-  const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec });
+  const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec, rangeTs });
   // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
   const [series, setSeries] = useState({});
 
@@ -222,7 +232,7 @@ export default function Home() {
     <div className={styles.page}>
       <h2>テストフィールド - 行動経路表示</h2>
 
-      <SettingsPanel onApply={setAppliedSettings} estimateTs={frame?.ts ?? null} />
+      <SettingsPanel onApply={setAppliedSettings} onRangeTs={setRangeTs} estimateTs={frame?.ts ?? null} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
       <div className={`${styles.mapScroll} ${routeMode ? styles.mapScrollRoute : ""}`}>
@@ -271,6 +281,7 @@ export default function Home() {
                 top={placeOf(chart, routeMode).top}
                 left={placeOf(chart, routeMode).left}
                 points={visibleSeries[node.node_id]?.[SENSOR_IDS[i]]}
+                value={pickValue(visibleSeries[node.node_id]?.[SENSOR_IDS[i]], realtime, rangeTs ?? pastFromSec)}
                 valueUnit={appliedSettings.valueUnit}
                 timeRangeSeconds={appliedSettings.timeRangeSeconds}
                 timeAxisMode={appliedSettings.timeAxisMode}
