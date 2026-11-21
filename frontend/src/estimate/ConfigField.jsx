@@ -8,7 +8,7 @@ export default function ConfigField({ field, value, draft, onEdit, onChange, onC
       <div className={styles.label}>
         {field.label}
         <span className={styles.caption}>
-          {field.key} · {field.type}
+          {field.column ?? field.key} · {field.type}
         </span>
       </div>
       {editing ? (

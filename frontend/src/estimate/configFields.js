@@ -23,6 +23,16 @@ export const CONFIG_FIELDS = [
   { key: "quiet_reset_sec", label: "無反応で一様に戻す秒数", type: "smallint", nullable: true },
 ];
 
+// 編集できる estimator_sensor の列（12センサ×2列）。key は drafts 用の一意なキー
+export const SENSOR_FIELDS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((sensorNo) => [
+  { key: `noise_floor_${sensorNo}`, sensorNo, column: "noise_floor", label: `センサ${sensorNo} 雑音下限`, type: "real" },
+  { key: `upper_level_${sensorNo}`, sensorNo, column: "upper_level", label: `センサ${sensorNo} 反応1.0の上限`, type: "real" },
+]);
+
+// 設定 config が持つ、センサ列 field の値
+export const sensorValue = (config, field) =>
+  config.sensors.find((s) => s.sensor_no === field.sensorNo)[field.column];
+
 // 入力欄の文字列を列の型の値にする（空欄は nullable な列なら null）。不正ならエラーを投げる
 export function parseFieldValue(field, text) {
   const trimmed = text.trim();

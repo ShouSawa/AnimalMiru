@@ -3,6 +3,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,30 +14,38 @@ import (
 
 // EstimatorConfig は estimator_config の1行
 type EstimatorConfig struct {
-	ConfigID      int       `db:"config_id" json:"config_id"`
-	Name          string    `db:"name" json:"name"`
-	CreatedAt     time.Time `db:"created_at" json:"created_at"`
-	CodeVersion   *string   `db:"code_version" json:"code_version"`
-	Note          *string   `db:"note" json:"note"`
-	GridNx        int       `db:"grid_nx" json:"grid_nx"`
-	GridNy        int       `db:"grid_ny" json:"grid_ny"`
-	CellSizeM     float64   `db:"cell_size_m" json:"cell_size_m"`
-	GridXMinM     float64   `db:"grid_x_min_m" json:"grid_x_min_m"`
-	GridYMinM     float64   `db:"grid_y_min_m" json:"grid_y_min_m"`
-	MapEncoding   int       `db:"map_encoding" json:"map_encoding"`
-	WindowSec     int       `db:"window_sec" json:"window_sec"`
-	DelaySec      float64   `db:"delay_sec" json:"delay_sec"`
-	MinSamples    int       `db:"min_samples" json:"min_samples"`
-	ActiveThreshV float64   `db:"active_thresh_v" json:"active_thresh_v"`
-	FovHalfDeg    float64   `db:"fov_half_deg" json:"fov_half_deg"`
-	RangeM        float64   `db:"range_m" json:"range_m"`
-	D0M           float64   `db:"d0_m" json:"d0_m"`
-	SigmaObs      float64   `db:"sigma_obs" json:"sigma_obs"`
-	Epsilon       float64   `db:"epsilon" json:"epsilon"`
-	Beta          float64   `db:"beta" json:"beta"`
-	SigmaMoveM    float64   `db:"sigma_move_m" json:"sigma_move_m"`
-	QuietResetSec *int      `db:"quiet_reset_sec" json:"quiet_reset_sec"`
-	Main          bool      `db:"main" json:"main"`
+	ConfigID      int               `db:"config_id" json:"config_id"`
+	Name          string            `db:"name" json:"name"`
+	CreatedAt     time.Time         `db:"created_at" json:"created_at"`
+	CodeVersion   *string           `db:"code_version" json:"code_version"`
+	Note          *string           `db:"note" json:"note"`
+	GridNx        int               `db:"grid_nx" json:"grid_nx"`
+	GridNy        int               `db:"grid_ny" json:"grid_ny"`
+	CellSizeM     float64           `db:"cell_size_m" json:"cell_size_m"`
+	GridXMinM     float64           `db:"grid_x_min_m" json:"grid_x_min_m"`
+	GridYMinM     float64           `db:"grid_y_min_m" json:"grid_y_min_m"`
+	MapEncoding   int               `db:"map_encoding" json:"map_encoding"`
+	WindowSec     int               `db:"window_sec" json:"window_sec"`
+	DelaySec      float64           `db:"delay_sec" json:"delay_sec"`
+	MinSamples    int               `db:"min_samples" json:"min_samples"`
+	ActiveThreshV float64           `db:"active_thresh_v" json:"active_thresh_v"`
+	FovHalfDeg    float64           `db:"fov_half_deg" json:"fov_half_deg"`
+	RangeM        float64           `db:"range_m" json:"range_m"`
+	D0M           float64           `db:"d0_m" json:"d0_m"`
+	SigmaObs      float64           `db:"sigma_obs" json:"sigma_obs"`
+	Epsilon       float64           `db:"epsilon" json:"epsilon"`
+	Beta          float64           `db:"beta" json:"beta"`
+	SigmaMoveM    float64           `db:"sigma_move_m" json:"sigma_move_m"`
+	QuietResetSec *int              `db:"quiet_reset_sec" json:"quiet_reset_sec"`
+	Sensors       []EstimatorSensor `db:"-" json:"sensors"`
+	Main          bool              `db:"main" json:"main"`
+}
+
+// EstimatorSensor は estimator_sensor の1行（config_id は親の EstimatorConfig が持つ）
+type EstimatorSensor struct {
+	SensorNo   int     `db:"sensor_no" json:"sensor_no"`
+	NoiseFloor float64 `db:"noise_floor" json:"noise_floor"`
+	UpperLevel float64 `db:"upper_level" json:"upper_level"`
 }
 
 const selectConfig = `
@@ -95,17 +104,35 @@ func SetMainConfig(id int) error {
 	return tx.Commit()
 }
 
-// ListConfigs は全設定を config_id の昇順で返す
+// ListConfigs は全設定を estimator_sensor の12行つきで config_id の昇順で返す
 func ListConfigs() ([]EstimatorConfig, error) {
 	configs := []EstimatorConfig{}
-	err := db.DB.Select(&configs, selectConfig+` ORDER BY config_id`)
-	return configs, err
+	if err := db.DB.Select(&configs, selectConfig+` ORDER BY config_id`); err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ConfigID int `db:"config_id"`
+		EstimatorSensor
+	}
+	if err := db.DB.Select(&rows, `
+		SELECT config_id, sensor_no, noise_floor, upper_level FROM estimator_sensor ORDER BY config_id, sensor_no
+	`); err != nil {
+		return nil, err
+	}
+	byID := map[int][]EstimatorSensor{}
+	for _, r := range rows {
+		byID[r.ConfigID] = append(byID[r.ConfigID], r.EstimatorSensor)
+	}
+	for i := range configs {
+		configs[i].Sensors = byID[configs[i].ConfigID]
+	}
+	return configs, nil
 }
 
-// CreateConfig は c の内容で設定を追加し，baseID の estimator_sensor（12行）を引き継ぐ．
-// name と created_at 以外の全属性が同じ設定が既にあれば追加せず，その config_id と created=false を返す．
+// CreateConfig は c の内容で設定と estimator_sensor（12行）を追加する．
+// name と created_at 以外の全属性と12センサの値が同じ設定が既にあれば追加せず，その config_id と created=false を返す．
 // name が空か既存と重なるときは，時刻を付けた名前にする
-func CreateConfig(c EstimatorConfig, baseID int) (id int, created bool, err error) {
+func CreateConfig(c EstimatorConfig) (id int, created bool, err error) {
 	tx, err := db.DB.Beginx()
 	if err != nil {
 		return 0, false, err
@@ -122,7 +149,18 @@ func CreateConfig(c EstimatorConfig, baseID int) (id int, created bool, err erro
 		holders[i] = fmt.Sprintf("$%d", i+2) // $1 は name
 	}
 
-	err = tx.Get(&id, `SELECT config_id FROM estimator_config WHERE `+strings.Join(conds, " AND ")+` ORDER BY config_id LIMIT 1`, args...)
+	sensorsJSON, err := json.Marshal(c.Sensors)
+	if err != nil {
+		return 0, false, err
+	}
+	// 12センサの値が全て一致する設定だけを同じ設定とみなす
+	conds = append(conds, fmt.Sprintf(`(
+		SELECT count(*) FROM estimator_sensor s
+		JOIN jsonb_to_recordset($%d::jsonb) AS t(sensor_no smallint, noise_floor real, upper_level real)
+		  ON t.sensor_no = s.sensor_no AND t.noise_floor = s.noise_floor AND t.upper_level = s.upper_level
+		WHERE s.config_id = estimator_config.config_id) = 12`, len(attrColumns)+1))
+
+	err = tx.Get(&id, `SELECT config_id FROM estimator_config WHERE `+strings.Join(conds, " AND ")+` ORDER BY config_id LIMIT 1`, append(args, string(sensorsJSON))...)
 	if err == nil {
 		return id, false, nil
 	}
@@ -149,13 +187,14 @@ func CreateConfig(c EstimatorConfig, baseID int) (id int, created bool, err erro
 	}
 	res, err := tx.Exec(`
 		INSERT INTO estimator_sensor (config_id, sensor_no, noise_floor, upper_level)
-		SELECT $1, sensor_no, noise_floor, upper_level FROM estimator_sensor WHERE config_id = $2
-	`, id, baseID)
+		SELECT $1, sensor_no, noise_floor, upper_level
+		FROM jsonb_to_recordset($2::jsonb) AS t(sensor_no smallint, noise_floor real, upper_level real)
+	`, id, string(sensorsJSON))
 	if err != nil {
 		return 0, false, err
 	}
 	if n, _ := res.RowsAffected(); n != 12 {
-		return 0, false, fmt.Errorf("基にする config_id=%d の estimator_sensor が12行ではありません", baseID)
+		return 0, false, fmt.Errorf("estimator_sensor は12行必要です（%d行）", n)
 	}
 	return id, true, tx.Commit()
 }

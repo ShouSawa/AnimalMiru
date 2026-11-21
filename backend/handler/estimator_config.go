@@ -22,12 +22,15 @@ func validateConfig(c repository.EstimatorConfig) error {
 	if c.MapEncoding != 1 {
 		return fmt.Errorf("map_encoding は 1 のみ対応しています")
 	}
+	if len(c.Sensors) != 12 {
+		return fmt.Errorf("センサは12個分の値が必要です")
+	}
 	return nil
 }
 
 // ServeEstimatorConfigs は /api/estimator/configs のHTTPハンドラを返す。
-// GET: 全設定を返す（使用中の設定は main=true）
-// POST {"base_config_id": N, "config": {...}}: 設定を追加して main（使用中）にする。同じ設定が既にあればそれを main にする
+// GET: 全設定と使用中の config_id を main=true で返す
+// POST {"config": {..., "sensors": [12センサ分]}}: 設定を追加して使用中にする。同じ設定が既にあればそれを使用中にする
 func ServeEstimatorConfigs(activate func(int) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -42,8 +45,7 @@ func ServeEstimatorConfigs(activate func(int) error) http.HandlerFunc {
 			json.NewEncoder(w).Encode(map[string]any{"configs": configs})
 		case http.MethodPost:
 			var req struct {
-				BaseConfigID int                        `json:"base_config_id"`
-				Config       repository.EstimatorConfig `json:"config"`
+				Config repository.EstimatorConfig `json:"config"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				http.Error(w, "invalid body", http.StatusBadRequest)
@@ -53,7 +55,7 @@ func ServeEstimatorConfigs(activate func(int) error) http.HandlerFunc {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			id, created, err := repository.CreateConfig(req.Config, req.BaseConfigID)
+			id, created, err := repository.CreateConfig(req.Config)
 			var pqErr *pq.Error
 			if errors.As(err, &pqErr) && pqErr.Code.Class() == "23" { // 制約違反は入力の誤り
 				http.Error(w, pqErr.Message, http.StatusBadRequest)

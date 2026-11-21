@@ -19,12 +19,12 @@ export async function postActive(configId) {
   );
 }
 
-// baseConfigId の12センサの較正値を引き継いで設定を追加し、main にする: { config_id, created }
-export async function postConfig(baseConfigId, config) {
+// 設定（config.sensors に12センサ分の較正値を含む）を追加し、使用中にする: { config_id, created }
+export async function postConfig(config) {
   const res = await fetch("/api/estimator/configs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ base_config_id: baseConfigId, config }),
+    body: JSON.stringify({ config }),
   });
   return (await checkOk(res)).json();
 }
