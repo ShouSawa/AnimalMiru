@@ -8,6 +8,8 @@ import { loadSettings } from "../components/sensorSettings";
 import EstimateLayer from "../estimate/EstimateLayer";
 import ConfigPanel from "../estimate/ConfigPanel";
 import useEstimateFrame from "../estimate/useEstimateFrame";
+import RouteLayer from "../estimate/RouteLayer";
+import useRangeFrames from "../estimate/useRangeFrames";
 
 const SENSOR_IDS = ["A1", "A2", "A3"];
 
@@ -88,7 +90,7 @@ export default function Home() {
   // 設定エリアで「設定を適用」またはテンプレ選択が実行されたときに反映される設定
   const [appliedSettings, setAppliedSettings] = useState(loadSettings);
   const { year, month, day, hour, minute, second } = appliedSettings.startDateTime;
-  const { realtime, timeRangeSeconds, routeMode, sensorRangeVisible, positionVisible } = appliedSettings;
+  const { realtime, timeRangeSeconds, routeMode, sensorRangeVisible, positionVisible, pathVisible } = appliedSettings;
   const pastFromSec = new Date(year, month - 1, day, hour, minute, second).getTime() / 1000;
   // リアルタイムモードで時計の進みに合わせて更新する現在時刻（ミリ秒）
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -98,6 +100,10 @@ export default function Home() {
   const startDateTime = new Date(fromSec * 1000);
   // 範囲経路計算のスライダー位置（UNIX秒）。計算済みの範囲がなければ null
   const [rangeTs, setRangeTs] = useState(null);
+  // 範囲経路計算を終えた範囲 { from, to }（UNIX秒）。経路表示がONのときだけ、その範囲の推定結果を取得する
+  const [calcRange, setCalcRange] = useState(null);
+  const routeRange = routeMode && pathVisible ? calcRange : null;
+  const routeFrames = useRangeFrames(routeRange);
   // 位置表示がONのときの推定結果。地図に重ねるのは座標が地図の0〜100%と一致する経路表示モードだけ
   const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec, rangeTs });
   // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
@@ -232,7 +238,7 @@ export default function Home() {
     <div className={styles.page}>
       <h2>テストフィールド - 行動経路表示</h2>
 
-      <SettingsPanel onApply={setAppliedSettings} onRangeTs={setRangeTs} estimateTs={frame?.ts ?? null} />
+      <SettingsPanel onApply={setAppliedSettings} onRangeTs={setRangeTs} onRange={setCalcRange} estimateTs={frame?.ts ?? null} />
 
       {/* 地図エリア：後からLeafletに差し替える四角いプレースホルダー（狭い画面では横スクロール） */}
       <div className={`${styles.mapScroll} ${routeMode ? styles.mapScrollRoute : ""}`}>
@@ -244,6 +250,7 @@ export default function Home() {
         </span>
 
         {routeMode && <MapGrid />}
+        {routeRange && <RouteLayer frames={routeFrames} from={routeRange.from} to={routeRange.to} />}
         {routeMode && positionVisible && <EstimateLayer frame={frame} />}
 
         {sensorRangeVisible && (

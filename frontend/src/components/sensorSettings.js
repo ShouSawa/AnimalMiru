@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS = {
   routeMode: false,
   sensorRangeVisible: false,
   positionVisible: false,
+  pathVisible: true,
   timeRangeSeconds: 40,
   timeAxisMode: "clock",
   startDateTime: { year: 2026, month: 1, day: 22, hour: 14, minute: 9, second: 39 },

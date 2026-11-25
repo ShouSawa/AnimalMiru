@@ -65,7 +65,8 @@ function ToggleSection({ title, checked, onChange }) {
 
 // estimateTs: 地図に表示中の推定位置の時刻（UNIX秒）。反応がなく表示するものがなければ null
 // onRangeTs: 範囲経路計算のスライダー位置（UNIX秒）を伝える。計算済みの範囲がないときは null
-export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
+// onRange: 範囲経路計算を終えた範囲 { from, to }（UNIX秒）を伝える。計算済みの範囲がないときは null
+export default function SettingsPanel({ onApply, onRangeTs, onRange, estimateTs }) {
   const [draft, setDraft] = useState(loadSettings);
   const [applied, setApplied] = useState(loadSettings);
   const [templateNames, setTemplateNames] = useState([]);
@@ -115,6 +116,10 @@ export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
   useEffect(() => {
     onRangeTs(rangeReady ? sliderTs : null);
   }, [onRangeTs, rangeReady, sliderTs]);
+
+  useEffect(() => {
+    onRange(rangeReady ? { from: startSec, to: endSec } : null);
+  }, [onRange, rangeReady, startSec, endSec]);
 
   const applySettings = (settings) => {
     setApplied(settings);
@@ -416,6 +421,15 @@ export default function SettingsPanel({ onApply, onRangeTs, estimateTs }) {
           applyField(draft.positionVisible ? { positionVisible: false } : { positionVisible: true, routeMode: true })
         }
       />
+
+      {/* 範囲経路計算が済んでいる範囲のときだけ表示する */}
+      {rangeReady && (
+        <ToggleSection
+          title="経路表示"
+          checked={draft.pathVisible}
+          onChange={() => applyField({ pathVisible: !draft.pathVisible })}
+        />
+      )}
 
       {draft.positionVisible && (
         <div className={styles.section}>
