@@ -1,0 +1,11 @@
+.input {
+  box-sizing: border-box;
+  width: 64px;
+  padding: 4px 6px;
+  background: white;
+  color: #222;
+  border: 1px solid #333;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}

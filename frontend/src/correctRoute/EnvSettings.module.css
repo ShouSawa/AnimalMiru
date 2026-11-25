@@ -1,0 +1,31 @@
+.input,
+.memo {
+  box-sizing: border-box;
+  padding: 5px 8px;
+  background: white;
+  color: #222;
+  border: 1px solid #333;
+  font-size: 13px;
+}
+
+.input {
+  width: 160px;
+}
+
+.memo {
+  width: 200px;
+  height: 90px;
+  resize: vertical;
+}
+
+.recordButton {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: #0a6b0a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}

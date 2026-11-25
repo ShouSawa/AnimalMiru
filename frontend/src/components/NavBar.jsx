@@ -15,6 +15,7 @@ export default function NavBar() {
       </span>
       <Link to="/"        style={{ color: "white", textDecoration: "none" }}>ホーム</Link>
       <Link to="/db" style={{ color: "white", textDecoration: "none" }}>DB</Link>
+      <Link to="/correct-route" style={{ color: "white", textDecoration: "none" }}>正解経路</Link>
     </nav>
   );
 }

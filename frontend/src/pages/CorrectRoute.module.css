@@ -1,0 +1,25 @@
+.page {
+  padding: 24px;
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 12px;
+  }
+}
+
+.body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+/* 地図の外に出る座標の目盛り（左右約50px・上下約28px）の余白を確保する。狭い画面では横スクロール */
+.fieldScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 28px 56px;
+}
