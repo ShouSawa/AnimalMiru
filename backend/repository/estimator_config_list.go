@@ -37,6 +37,7 @@ type EstimatorConfig struct {
 	Beta          float64           `db:"beta" json:"beta"`
 	SigmaMoveM    float64           `db:"sigma_move_m" json:"sigma_move_m"`
 	QuietResetSec *int              `db:"quiet_reset_sec" json:"quiet_reset_sec"`
+	NodeSpacingM  float64           `db:"node_spacing_m" json:"node_spacing_m"`
 	Sensors       []EstimatorSensor `db:"-" json:"sensors"`
 	Main          bool              `db:"main" json:"main"`
 }
@@ -53,7 +54,7 @@ const selectConfig = `
 	       grid_nx, grid_ny, cell_size_m, grid_x_min_m, grid_y_min_m, map_encoding,
 	       window_sec, delay_sec, min_samples, active_thresh_v,
 	       fov_half_deg, range_m, d0_m, sigma_obs, epsilon, beta,
-	       sigma_move_m, quiet_reset_sec
+	       sigma_move_m, quiet_reset_sec, node_spacing_m
 	FROM estimator_config`
 
 // attrColumns は config_id・created_at・name・main 以外の列．attrs() の並びと一致させること
@@ -64,13 +65,13 @@ var attrColumns = []struct{ name, typ string }{
 	{"window_sec", "smallint"}, {"delay_sec", "real"}, {"min_samples", "smallint"},
 	{"active_thresh_v", "real"}, {"fov_half_deg", "real"}, {"range_m", "real"},
 	{"d0_m", "real"}, {"sigma_obs", "real"}, {"epsilon", "real"}, {"beta", "real"},
-	{"sigma_move_m", "real"}, {"quiet_reset_sec", "smallint"},
+	{"sigma_move_m", "real"}, {"quiet_reset_sec", "smallint"}, {"node_spacing_m", "real"},
 }
 
 func (c EstimatorConfig) attrs() []any {
 	return []any{c.CodeVersion, c.Note, c.GridNx, c.GridNy, c.CellSizeM, c.GridXMinM, c.GridYMinM,
 		c.MapEncoding, c.WindowSec, c.DelaySec, c.MinSamples, c.ActiveThreshV, c.FovHalfDeg, c.RangeM,
-		c.D0M, c.SigmaObs, c.Epsilon, c.Beta, c.SigmaMoveM, c.QuietResetSec}
+		c.D0M, c.SigmaObs, c.Epsilon, c.Beta, c.SigmaMoveM, c.QuietResetSec, c.NodeSpacingM}
 }
 
 // GetConfig は config_id の設定を返す

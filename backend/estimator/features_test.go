@@ -62,7 +62,7 @@ func TestSensorNo(t *testing.T) {
 // 第4章: センサの向きが設計書の表と一致する
 func TestSensorAngles(t *testing.T) {
 	want := [12]float64{225, 345, 105, 135, 255, 15, 45, 165, 285, 315, 75, 195}
-	for k, s := range Sensors {
+	for k, s := range Sensors(DefaultParams().NodeSpacingM) {
 		if s.AngleDeg != want[k] {
 			t.Errorf("センサ%d: %v, want %v", k+1, s.AngleDeg, want[k])
 		}

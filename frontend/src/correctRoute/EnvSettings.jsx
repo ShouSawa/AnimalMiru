@@ -3,14 +3,12 @@ import ownStyles from "./EnvSettings.module.css";
 import CalendarPicker from "../components/CalendarPicker";
 import ClockPicker from "../components/ClockPicker";
 import TimeInput from "./TimeInput";
-import { TARGETS } from "./waypoints";
+import { TARGETS, toDate } from "./waypoints";
 
 // lastSec: 通過点エリアの最後の通過時間（秒）。記録終了時間は記録開始時間にこれを足した時刻で、入力はできない
-export default function EnvSettings({ settings, lastSec, onChange }) {
+export default function EnvSettings({ settings, lastSec, onChange, onRecord, recordDisabled }) {
   const { title, start, target, memo, intervalSec } = settings;
-  const end = new Date(
-    new Date(start.year, start.month - 1, start.day, start.hour, start.minute, start.second).getTime() + lastSec * 1000
-  );
+  const end = new Date(toDate(start).getTime() + lastSec * 1000);
   const updateStart = (fields) => onChange({ start: { ...start, ...fields } });
 
   return (
@@ -64,8 +62,7 @@ export default function EnvSettings({ settings, lastSec, onChange }) {
       <div className={styles.section}>
         <div className={styles.fieldLabel}>セル通過間隔</div>
         <TimeInput sec={intervalSec} onChange={(sec) => onChange({ intervalSec: sec })} />
-        {/* 記録の機構は未実装 */}
-        <button type="button" className={ownStyles.recordButton}>
+        <button type="button" className={ownStyles.recordButton} disabled={recordDisabled} onClick={onRecord}>
           記録
         </button>
       </div>

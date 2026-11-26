@@ -1,4 +1,4 @@
-async function checkOk(res) {
+export async function checkOk(res) {
   if (!res.ok) throw new Error((await res.text()).trim() || `HTTP ${res.status}`);
   return res;
 }

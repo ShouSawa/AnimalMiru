@@ -13,6 +13,7 @@ export const CONFIG_FIELDS = [
   { key: "delay_sec", label: "計算の遅れ delay_sec [s]", type: "real" },
   { key: "min_samples", label: "窓内の最小サンプル数", type: "smallint" },
   { key: "active_thresh_v", label: "反応ありの振幅 [V]", type: "real" },
+  { key: "node_spacing_m", label: "センサノード間隔 [m]", type: "real" },
   { key: "fov_half_deg", label: "視野の半角 [度]", type: "real" },
   { key: "range_m", label: "検知距離 [m]", type: "real" },
   { key: "d0_m", label: "反応が弱まる距離 d0 [m]", type: "real" },

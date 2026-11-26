@@ -25,6 +25,7 @@ erDiagram
     real beta "観測の影響を弱める指数"
     real sigma_move_m "動きの幅(予測のぼかし)[m]"
     smallint quiet_reset_sec "無反応で一様に戻す秒数"
+    real node_spacing_m "隣り合うセンサノードの間隔[m]"
   }
 
   estimator_sensor {
@@ -110,6 +111,18 @@ erDiagram
     string horizontal_axis "横軸の表示"
     string vertical_axis "縦軸の表示"
     timestamp start_time "表示開始時間"
+  }
+
+  ground_truth_route {
+    int route_id PK "正解経路の番号(自動採番)"
+    text title "タイトル"
+    timestamptz start_time "記録開始時間"
+    timestamptz end_time "記録終了時間"
+    text target "実験対象(人,シカ,サル,イノシシ)"
+    text memo "メモ"
+    int interval_sec "セル通過間隔[s]"
+    jsonb waypoints "通過点[ix,iy,開始からの秒]の配列(通過順)"
+    timestamptz created_at "作成日時"
   }
 
 ```

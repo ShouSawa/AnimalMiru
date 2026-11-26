@@ -47,6 +47,7 @@ func main() {
 	mux.HandleFunc("/api/estimation/recalc-range", handler.ServeEstimationRecalcRange())
 	mux.HandleFunc("/api/estimator/configs", handler.ServeEstimatorConfigs(activateConfig))
 	mux.HandleFunc("/api/estimator/active", handler.ServeEstimatorActive(activateConfig))
+	mux.HandleFunc("/api/routes", handler.ServeRoutes())
 	go func() {
 		log.Println("WebSocketサーバー起動: ポート8081で待ち受け中（/ws/realtime）")
 		if err := http.ListenAndServe(":8081", mux); err != nil {

@@ -193,6 +193,13 @@ function mockApi() {
         res.end(JSON.stringify(name ? mockTemplates.get(name) : { names: [...mockTemplates.keys()].sort() }))
       })
 
+      // Goの ServeRoutes と同じ形で、保存したことにして連番の route_id を返す
+      let mockRouteId = 0
+      server.middlewares.use('/api/routes', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ route_id: ++mockRouteId }))
+      })
+
       // Vite内蔵のサーバーに、/api/sensor-data/recent を受け付ける処理を追加する
       server.middlewares.use('/api/sensor-data/recent', (req, res) => {
         const rows = loadMockRows()

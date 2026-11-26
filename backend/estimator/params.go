@@ -15,6 +15,7 @@ type Params struct {
 	Beta          float64
 	SigmaMoveM    float64
 	QuietResetSec *int // nil なら無反応が続いてもリセットしない
+	NodeSpacingM  float64
 }
 
 // SensorCal はセンサごとの較正値．S_k と同じ単位（生の8bit幅，0〜255）
@@ -30,5 +31,6 @@ func DefaultParams() Params {
 		FovHalfDeg: 72, RangeM: 10, D0M: 8,
 		SigmaObs: 0.3, Epsilon: 0.1, Beta: 0.7,
 		SigmaMoveM: 2.0, QuietResetSec: &quiet,
+		NodeSpacingM: 10,
 	}
 }

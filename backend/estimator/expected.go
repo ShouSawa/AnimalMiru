@@ -6,8 +6,9 @@ import "math"
 // Expected は期待反応 e_k(i) の表 [12][N] を作る．
 // 視野内（角度差が FovHalfDeg 以内かつ距離が RangeM 以内）なら exp(-(d/D0)^2)，視野外は0
 func Expected(g Grid, p Params) [][]float64 {
-	table := make([][]float64, len(Sensors))
-	for k, s := range Sensors {
+	sensors := Sensors(p.NodeSpacingM)
+	table := make([][]float64, len(sensors))
+	for k, s := range sensors {
 		table[k] = make([]float64, g.N())
 		for i := range table[k] {
 			cx, cy := g.Center(i)

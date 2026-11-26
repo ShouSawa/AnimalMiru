@@ -4,8 +4,9 @@ import ConfigField from "./ConfigField";
 import { CONFIG_FIELDS, SENSOR_FIELDS, parseFieldValue, sensorValue } from "./configFields";
 import { fetchConfigs, postActive, postConfig } from "./configApi";
 
-// 経路推定のパラメータ（estimator_config と estimator_sensor）の表示・編集・使用する設定番号の選択
-export default function ConfigPanel() {
+// 経路推定のパラメータ（estimator_config と estimator_sensor）の表示・編集・使用する設定番号の選択。
+// onNodeSpacing には使用中の設定のノード間隔[m]を伝える
+export default function ConfigPanel({ onNodeSpacing }) {
   const [data, setData] = useState({ configs: [] });
   // 編集中の属性だけが入る: { 属性名: 入力中の文字列 }
   const [drafts, setDrafts] = useState({});
@@ -25,6 +26,11 @@ export default function ConfigPanel() {
   }, []);
 
   const current = data.configs.find((c) => c.main);
+  const nodeSpacing = current?.node_spacing_m;
+
+  useEffect(() => {
+    if (nodeSpacing !== undefined) onNodeSpacing(nodeSpacing);
+  }, [nodeSpacing, onNodeSpacing]);
 
   const run = async (action) => {
     setBusy(true);

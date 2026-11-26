@@ -29,3 +29,8 @@
   font-weight: bold;
   cursor: pointer;
 }
+
+.recordButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

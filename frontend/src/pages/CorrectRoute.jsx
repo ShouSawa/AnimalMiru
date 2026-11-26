@@ -3,7 +3,8 @@ import styles from "./CorrectRoute.module.css";
 import EnvSettings from "../correctRoute/EnvSettings";
 import RouteField from "../correctRoute/RouteField";
 import WaypointPanel from "../correctRoute/WaypointPanel";
-import { TARGETS } from "../correctRoute/waypoints";
+import { TARGETS, toDate } from "../correctRoute/waypoints";
+import { postRoute } from "../correctRoute/routeApi";
 
 const DEFAULT_INTERVAL_SEC = 4;
 
@@ -30,6 +31,26 @@ export default function CorrectRoute() {
   // 通過点: { id, ix, iy, sec }。並び順が通過順で、sec は実験開始からの通過時間（秒）
   const [points, setPoints] = useState([]);
   const nextId = useRef(0);
+  const [saving, setSaving] = useState(false);
+
+  const record = async () => {
+    setSaving(true);
+    try {
+      const { route_id } = await postRoute({
+        title: settings.title,
+        start_time: toDate(settings.start).getTime() / 1000,
+        target: settings.target,
+        memo: settings.memo,
+        interval_sec: settings.intervalSec,
+        waypoints: points.map((p) => [p.ix, p.iy, p.sec]),
+      });
+      window.alert(`記録しました（route_id: ${route_id}）`);
+    } catch (e) {
+      window.alert(`記録できませんでした: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // 最初の点は 00:00、2つ目以降は直前の点から通過間隔だけ後にする
   const addPoint = (ix, iy) => {
@@ -60,6 +81,8 @@ export default function CorrectRoute() {
         settings={settings}
         lastSec={points.length ? points[points.length - 1].sec : 0}
         onChange={(fields) => setSettings((prev) => ({ ...prev, ...fields }))}
+        onRecord={record}
+        recordDisabled={saving || !settings.title.trim() || !points.length}
       />
 
       <div className={styles.body}>

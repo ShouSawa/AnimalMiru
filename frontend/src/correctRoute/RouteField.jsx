@@ -2,14 +2,16 @@ import { useEffect, useRef } from "react";
 import styles from "./RouteField.module.css";
 import MapGrid from "../components/MapGrid";
 import NodePin from "../components/NodePin";
-import { NODE_ROUTE_POSITIONS } from "../components/sensorNodes";
+import { nodeRoutePositions } from "../components/sensorNodes";
 import { NX } from "../estimate/geometry";
 import { rainbowColor } from "./waypoints";
+import useNodeSpacing from "./useNodeSpacing";
 
 // フィールドをタップしたセル (ix, iy) を onTap で伝える。points（{ ix, iy }、通過順）のセルを虹色に塗り、薄い赤線でつなぐ。
 // セルは推定と同じく ix が西→東、iy が南→北に増える
 export default function RouteField({ points, onTap }) {
   const canvasRef = useRef(null);
+  const nodeSpacing = useNodeSpacing();
 
   // 60×60のcanvasの1ピクセルを1セルとして塗る。同じセルは後から塗った色で上書きされる
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function RouteField({ points, onTap }) {
     <div className={styles.mapArea}>
       <MapGrid />
       <div className={styles.nodeLayer}>
-        {Object.entries(NODE_ROUTE_POSITIONS).map(([nodeId, { routeTop, routeLeft }]) => (
+        {Object.entries(nodeRoutePositions(nodeSpacing)).map(([nodeId, { routeTop, routeLeft }]) => (
           <NodePin key={nodeId} nodeId={nodeId} top={routeTop} left={routeLeft} />
         ))}
       </div>

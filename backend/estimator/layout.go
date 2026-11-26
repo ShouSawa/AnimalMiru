@@ -9,21 +9,23 @@ type SensorPos struct {
 // nodeIDs の並びが node_mask のビット（1,2,4,8）とセンサ番号の並びを決める
 var nodeIDs = [4]string{"0002", "0003", "0004", "0005"}
 
-// Sensors はセンサ12個の固定配置．添字は0〜11（センサ番号 k=1〜12 より1小さい）
-// A1は圃場の中心を向き，A2=A1+120°，A3=A1+240°．Home.jsx の nodes と同じ値
-var Sensors = func() (s [12]SensorPos) {
-	nodes := [4]SensorPos{{5, 5, 225}, {5, -5, 135}, {-5, -5, 45}, {-5, 5, 315}}
+// Sensors はノードを間隔 spacing[m] の正方形（中心は圃場の中心）に置いたときのセンサ12個の配置を返す．
+// 添字は0〜11（センサ番号 k=1〜12 より1小さい）．
+// A1は圃場の中心を向き，A2=A1+120°，A3=A1+240°．向きは Home.jsx の nodes と同じ値
+func Sensors(spacing float64) (s [12]SensorPos) {
+	// X, Y は中心から見た向き（±1）
+	nodes := [4]SensorPos{{1, 1, 225}, {1, -1, 135}, {-1, -1, 45}, {-1, 1, 315}}
 	for n, node := range nodes {
 		for a := 0; a < 3; a++ {
 			angle := node.AngleDeg + 120*float64(a)
 			if angle >= 360 {
 				angle -= 360
 			}
-			s[n*3+a] = SensorPos{node.X, node.Y, angle}
+			s[n*3+a] = SensorPos{node.X * spacing / 2, node.Y * spacing / 2, angle}
 		}
 	}
 	return
-}()
+}
 
 // SensorNo は（ノード，センサ）に対応するセンサ番号（1〜12）を返す．無ければ−1
 func SensorNo(nodeID, sensorID string) int {

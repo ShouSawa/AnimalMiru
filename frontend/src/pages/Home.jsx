@@ -5,7 +5,7 @@ import SettingsPanel from "../components/SettingsPanel";
 import MapGrid from "../components/MapGrid";
 import SensorRanges from "../components/SensorRanges";
 import NodePin from "../components/NodePin";
-import { NODE_ROUTE_POSITIONS } from "../components/sensorNodes";
+import { DEFAULT_NODE_SPACING_M, nodeRoutePositions } from "../components/sensorNodes";
 import { loadSettings } from "../components/sensorSettings";
 import EstimateLayer from "../estimate/EstimateLayer";
 import ConfigPanel from "../estimate/ConfigPanel";
@@ -110,6 +110,8 @@ export default function Home() {
   const frame = useEstimateFrame({ enabled: positionVisible, realtime, pastFromSec, edgeSec: toSec, rangeTs });
   // ノード→センサ→[[UNIX秒, 値(0〜255)], ...]
   const [series, setSeries] = useState({});
+  // 使用中の推定設定のノード間隔[m]。パラメータ調整エリアが取得できたら反映する
+  const [nodeSpacing, setNodeSpacing] = useState(DEFAULT_NODE_SPACING_M);
 
   // 過去データの確認: 適用した期間のデータを取得する
   useEffect(() => {
@@ -177,8 +179,10 @@ export default function Home() {
     }
   }
 
+  const routePositions = nodeRoutePositions(nodeSpacing);
+
   // テストフィールドの仮ノード座標（後から実測値に差し替え可能）
-  // routeTop, routeLeft: 経路表示モードでの位置（ノードは±5m、グラフは地図の外周）
+  // routeTop, routeLeft: 経路表示モードでの位置（ノードは推定設定のノード間隔どおり、グラフは地図の外周）
   // charts: 各ノードに付いている3つのセンサのグラフ表示位置（仮）
   //   angle: センサの向き（東を0°とした反時計回り）、hue: センサ範囲とグラフの色相
   const nodes = [
@@ -187,7 +191,7 @@ export default function Home() {
       label: "ノードA",
       top: "20%",
       left: "80%",
-      ...NODE_ROUTE_POSITIONS["0002"],
+      ...routePositions["0002"],
       charts: [
         { top: "30%", left: "66%", routeTop: "-13%", routeLeft: "118%", angle: 225, hue: 0 },
         { top: "24%", left: "96%", routeTop: "6%", routeLeft: "118%", angle: 345, hue: 330 },
@@ -199,7 +203,7 @@ export default function Home() {
       label: "ノードB",
       top: "80%",
       left: "80%",
-      ...NODE_ROUTE_POSITIONS["0003"],
+      ...routePositions["0003"],
       charts: [
         { top: "70%", left: "66%", routeTop: "113%", routeLeft: "118%", angle: 135, hue: 30 },
         { top: "92%", left: "72%", routeTop: "113%", routeLeft: "91%", angle: 255, hue: 90 },
@@ -211,7 +215,7 @@ export default function Home() {
       label: "ノードC",
       top: "80%",
       left: "20%",
-      ...NODE_ROUTE_POSITIONS["0004"],
+      ...routePositions["0004"],
       charts: [
         { top: "70%", left: "34%", routeTop: "113%", routeLeft: "-18%", angle: 45, hue: 180 },
         { top: "74%", left: "4%", routeTop: "94%", routeLeft: "-18%", angle: 165, hue: 120 },
@@ -223,7 +227,7 @@ export default function Home() {
       label: "ノードD",
       top: "20%",
       left: "20%",
-      ...NODE_ROUTE_POSITIONS["0005"],
+      ...routePositions["0005"],
       charts: [
         { top: "30%", left: "34%", routeTop: "-13%", routeLeft: "-18%", angle: 315, hue: 210 },
         { top: "8%", left: "28%", routeTop: "-13%", routeLeft: "9%", angle: 75, hue: 270 },
@@ -292,7 +296,7 @@ export default function Home() {
       </div>
 
 
-      <ConfigPanel />
+      <ConfigPanel onNodeSpacing={setNodeSpacing} />
 
       {/* データ解析エリア：グラフ表示期間内の各センサの最大・最小電圧 */}
       <div className={styles.analysisArea}>

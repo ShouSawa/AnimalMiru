@@ -44,6 +44,7 @@ func LoadEstimator(id int) (estimator.Params, estimator.Grid, [12]estimator.Sens
 		ActiveThreshV: c.ActiveThreshV, FovHalfDeg: c.FovHalfDeg, RangeM: c.RangeM, D0M: c.D0M,
 		SigmaObs: c.SigmaObs, Epsilon: c.Epsilon, Beta: c.Beta,
 		SigmaMoveM: c.SigmaMoveM, QuietResetSec: c.QuietResetSec,
+		NodeSpacingM: c.NodeSpacingM,
 	}
 	return p, g, cal, nil
 }
