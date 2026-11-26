@@ -5,7 +5,7 @@ import { rainbowColor } from "./waypoints";
 import { NX } from "../estimate/geometry";
 
 // 通過点（{ id, ix, iy, sec }、通過順）の一覧。番号と色は並び順で決まり、左の「⠿」をドラッグすると順番を入れ替えられる
-export default function WaypointPanel({ points, onChangeSec, onRemove, onMove }) {
+export default function WaypointPanel({ points, onChangeSec, onRemove, onRemoveAll, onMove }) {
   const dragFrom = useRef(null);
 
   const handleDrop = (to) => {
@@ -15,7 +15,17 @@ export default function WaypointPanel({ points, onChangeSec, onRemove, onMove })
 
   return (
     <div className={styles.panel}>
-      <div className={styles.title}>通過点エリア</div>
+      <div className={styles.header}>
+        <div className={styles.title}>通過点エリア</div>
+        <button
+          type="button"
+          className={styles.removeAll}
+          disabled={!points.length}
+          onClick={() => window.confirm("通過点をすべて削除しますか？") && onRemoveAll()}
+        >
+          一括削除
+        </button>
+      </div>
       <ul className={styles.list}>
         {points.map((p, i) => (
           <li key={p.id} className={styles.row} onDragOver={(e) => e.preventDefault()} onDrop={() => handleDrop(i)}>

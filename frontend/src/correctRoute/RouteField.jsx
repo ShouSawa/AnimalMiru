@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import styles from "./RouteField.module.css";
 import MapGrid from "../components/MapGrid";
+import NodePin from "../components/NodePin";
+import { NODE_ROUTE_POSITIONS } from "../components/sensorNodes";
 import { NX } from "../estimate/geometry";
 import { rainbowColor } from "./waypoints";
 
@@ -35,6 +37,11 @@ export default function RouteField({ points, onTap }) {
   return (
     <div className={styles.mapArea}>
       <MapGrid />
+      <div className={styles.nodeLayer}>
+        {Object.entries(NODE_ROUTE_POSITIONS).map(([nodeId, { routeTop, routeLeft }]) => (
+          <NodePin key={nodeId} nodeId={nodeId} top={routeTop} left={routeLeft} />
+        ))}
+      </div>
       <div className={styles.tapLayer} onClick={handleClick}>
         <canvas ref={canvasRef} className={styles.canvas} width={NX} height={NX} />
       </div>

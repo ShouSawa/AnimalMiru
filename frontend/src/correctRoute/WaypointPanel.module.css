@@ -8,6 +8,27 @@
   color: #222;
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.removeAll {
+  padding: 4px 10px;
+  background: white;
+  color: #2d6a4f;
+  border: 1px solid #2d6a4f;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.removeAll:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .title {
   font-weight: bold;
   font-size: 15px;

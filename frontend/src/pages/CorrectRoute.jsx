@@ -66,7 +66,13 @@ export default function CorrectRoute() {
         <div className={styles.fieldScroll}>
           <RouteField points={points} onTap={addPoint} />
         </div>
-        <WaypointPanel points={points} onChangeSec={changeSec} onRemove={removePoint} onMove={movePoint} />
+        <WaypointPanel
+          points={points}
+          onChangeSec={changeSec}
+          onRemove={removePoint}
+          onRemoveAll={() => setPoints([])}
+          onMove={movePoint}
+        />
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import SensorChart from "../components/SensorChart";
 import SettingsPanel from "../components/SettingsPanel";
 import MapGrid from "../components/MapGrid";
 import SensorRanges from "../components/SensorRanges";
+import NodePin from "../components/NodePin";
+import { NODE_ROUTE_POSITIONS } from "../components/sensorNodes";
 import { loadSettings } from "../components/sensorSettings";
 import EstimateLayer from "../estimate/EstimateLayer";
 import ConfigPanel from "../estimate/ConfigPanel";
@@ -185,8 +187,7 @@ export default function Home() {
       label: "ノードA",
       top: "20%",
       left: "80%",
-      routeTop: "33.33%",
-      routeLeft: "66.67%",
+      ...NODE_ROUTE_POSITIONS["0002"],
       charts: [
         { top: "30%", left: "66%", routeTop: "-13%", routeLeft: "118%", angle: 225, hue: 0 },
         { top: "24%", left: "96%", routeTop: "6%", routeLeft: "118%", angle: 345, hue: 330 },
@@ -198,8 +199,7 @@ export default function Home() {
       label: "ノードB",
       top: "80%",
       left: "80%",
-      routeTop: "66.67%",
-      routeLeft: "66.67%",
+      ...NODE_ROUTE_POSITIONS["0003"],
       charts: [
         { top: "70%", left: "66%", routeTop: "113%", routeLeft: "118%", angle: 135, hue: 30 },
         { top: "92%", left: "72%", routeTop: "113%", routeLeft: "91%", angle: 255, hue: 90 },
@@ -211,8 +211,7 @@ export default function Home() {
       label: "ノードC",
       top: "80%",
       left: "20%",
-      routeTop: "66.67%",
-      routeLeft: "33.33%",
+      ...NODE_ROUTE_POSITIONS["0004"],
       charts: [
         { top: "70%", left: "34%", routeTop: "113%", routeLeft: "-18%", angle: 45, hue: 180 },
         { top: "74%", left: "4%", routeTop: "94%", routeLeft: "-18%", angle: 165, hue: 120 },
@@ -224,8 +223,7 @@ export default function Home() {
       label: "ノードD",
       top: "20%",
       left: "20%",
-      routeTop: "33.33%",
-      routeLeft: "33.33%",
+      ...NODE_ROUTE_POSITIONS["0005"],
       charts: [
         { top: "30%", left: "34%", routeTop: "-13%", routeLeft: "-18%", angle: 315, hue: 210 },
         { top: "8%", left: "28%", routeTop: "-13%", routeLeft: "9%", angle: 75, hue: 270 },
@@ -267,14 +265,7 @@ export default function Home() {
 
         {/* センサノードのピン */}
         {nodes.map((node) => (
-          <div
-            key={node.node_id}
-            className={styles.nodePin}
-            style={{ "--top": placeOf(node, routeMode).top, "--left": placeOf(node, routeMode).left }}
-          >
-            <img className={styles.nodePinImage} src={`/Sensornode${node.node_id}.png`} alt={node.node_id} />
-            <span className={styles.nodePinLabel}>{node.node_id}</span>
-          </div>
+          <NodePin key={node.node_id} nodeId={node.node_id} {...placeOf(node, routeMode)} />
         ))}
 
         {/* 各センサ値グラフ */}

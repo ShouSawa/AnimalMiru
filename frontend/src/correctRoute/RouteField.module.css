@@ -7,9 +7,17 @@
   border-radius: 8px;
 }
 
+/* nodeLayer と tapLayer は同じ z-index にして、後に書いた tapLayer（塗ったマス）を画像より手前にする */
+.nodeLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 .tapLayer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   cursor: crosshair;
 }
 
