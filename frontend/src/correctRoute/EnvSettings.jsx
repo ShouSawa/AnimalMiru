@@ -7,7 +7,7 @@ import RouteList from "./RouteList";
 import { TARGETS, toDate } from "./waypoints";
 
 // lastSec: 通過点エリアの最後の通過時間（秒）。記録終了時間は記録開始時間にこれを足した時刻で、入力はできない
-export default function EnvSettings({ settings, lastSec, onChange, onRecord, recordDisabled, onLoad }) {
+export default function EnvSettings({ settings, lastSec, onChange, onRecord, recordDisabled, onLoad, onClear }) {
   const { title, start, target, memo, intervalSec } = settings;
   const end = new Date(toDate(start).getTime() + lastSec * 1000);
   const updateStart = (fields) => onChange({ start: { ...start, ...fields } });
@@ -68,7 +68,16 @@ export default function EnvSettings({ settings, lastSec, onChange, onRecord, rec
         </button>
       </div>
 
-      <RouteList onSelect={onLoad} />
+      <div className={styles.section}>
+        <RouteList onSelect={onLoad} />
+        <button
+          type="button"
+          className={ownStyles.clearButton}
+          onClick={() => window.confirm("設定と通過点をすべて消して、空白の状態にしますか？") && onClear()}
+        >
+          経路削除
+        </button>
+      </div>
     </div>
   );
 }

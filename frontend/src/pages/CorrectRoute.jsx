@@ -88,6 +88,10 @@ export default function CorrectRoute() {
         onRecord={record}
         recordDisabled={saving || !settings.title.trim() || !points.length}
         onLoad={loadRoute}
+        onClear={() => {
+          setSettings(initialSettings());
+          setPoints([]);
+        }}
       />
 
       <div className={styles.body}>
