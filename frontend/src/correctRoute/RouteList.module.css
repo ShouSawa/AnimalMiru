@@ -1,0 +1,76 @@
+.container {
+  position: relative;
+}
+
+.trigger {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  color: #222;
+  cursor: pointer;
+}
+
+.list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 260px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: white;
+  border: 1px solid #2d6a4f;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  color: #222;
+  text-align: left;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+}
+
+.item,
+.remove {
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.item {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: #222;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.item:hover {
+  background: #f1f8f4;
+}
+
+.detail {
+  display: block;
+  font-size: 11px;
+  color: #666;
+}
+
+.remove {
+  padding: 6px 8px;
+  color: #d32f2f;
+}
+
+.empty {
+  padding: 6px 8px;
+}

@@ -3,23 +3,15 @@ import styles from "./CorrectRoute.module.css";
 import EnvSettings from "../correctRoute/EnvSettings";
 import RouteField from "../correctRoute/RouteField";
 import WaypointPanel from "../correctRoute/WaypointPanel";
-import { TARGETS, toDate } from "../correctRoute/waypoints";
+import { TARGETS, fromDate, toDate } from "../correctRoute/waypoints";
 import { postRoute } from "../correctRoute/routeApi";
 
 const DEFAULT_INTERVAL_SEC = 4;
 
 function initialSettings() {
-  const now = new Date();
   return {
     title: "",
-    start: {
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
-      day: now.getDate(),
-      hour: now.getHours(),
-      minute: now.getMinutes(),
-      second: now.getSeconds(),
-    },
+    start: fromDate(new Date()),
     target: TARGETS[0],
     memo: "",
     intervalSec: DEFAULT_INTERVAL_SEC,
@@ -36,7 +28,7 @@ export default function CorrectRoute() {
   const record = async () => {
     setSaving(true);
     try {
-      const { route_id } = await postRoute({
+      const { route_id, overwritten } = await postRoute({
         title: settings.title,
         start_time: toDate(settings.start).getTime() / 1000,
         target: settings.target,
@@ -44,12 +36,24 @@ export default function CorrectRoute() {
         interval_sec: settings.intervalSec,
         waypoints: points.map((p) => [p.ix, p.iy, p.sec]),
       });
-      window.alert(`記録しました（route_id: ${route_id}）`);
+      window.alert(`${overwritten ? "上書き保存" : "記録"}しました（route_id: ${route_id}）`);
     } catch (e) {
       window.alert(`記録できませんでした: ${e.message}`);
     } finally {
       setSaving(false);
     }
+  };
+
+  // 保存されている正解経路で、設定と通過点を置き換える
+  const loadRoute = (route) => {
+    setSettings({
+      title: route.title,
+      start: fromDate(new Date(route.start_time * 1000)),
+      target: route.target,
+      memo: route.memo,
+      intervalSec: route.interval_sec,
+    });
+    setPoints(route.waypoints.map(([ix, iy, sec]) => ({ id: nextId.current++, ix, iy, sec })));
   };
 
   // 最初の点は 00:00、2つ目以降は直前の点から通過間隔だけ後にする
@@ -83,6 +87,7 @@ export default function CorrectRoute() {
         onChange={(fields) => setSettings((prev) => ({ ...prev, ...fields }))}
         onRecord={record}
         recordDisabled={saving || !settings.title.trim() || !points.length}
+        onLoad={loadRoute}
       />
 
       <div className={styles.body}>

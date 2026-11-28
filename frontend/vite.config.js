@@ -193,11 +193,32 @@ function mockApi() {
         res.end(JSON.stringify(name ? mockTemplates.get(name) : { names: [...mockTemplates.keys()].sort() }))
       })
 
-      // Goの ServeRoutes と同じ形で、保存したことにして連番の route_id を返す
+      // Goの ServeRoutes と同じ形で、正解経路をメモリ上に保存して返す（開発サーバーを止めると消える）
+      const mockRoutes = new Map()
       let mockRouteId = 0
       server.middlewares.use('/api/routes', (req, res) => {
+        if (req.method === 'POST') {
+          let body = ''
+          req.on('data', (chunk) => (body += chunk))
+          req.on('end', () => {
+            const route = JSON.parse(body)
+            route.title = route.title.trim()
+            const same = [...mockRoutes.values()].find((r) => r.title === route.title)
+            const id = same?.route_id ?? ++mockRouteId
+            mockRoutes.set(id, { ...route, route_id: id })
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ route_id: id, overwritten: Boolean(same) }))
+          })
+          return
+        }
+        if (req.method === 'DELETE') {
+          mockRoutes.delete(Number(new URL(req.url, 'http://localhost').searchParams.get('id')))
+          res.statusCode = 204
+          res.end()
+          return
+        }
         res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ route_id: ++mockRouteId }))
+        res.end(JSON.stringify({ routes: [...mockRoutes.values()].reverse() }))
       })
 
       // Vite内蔵のサーバーに、/api/sensor-data/recent を受け付ける処理を追加する

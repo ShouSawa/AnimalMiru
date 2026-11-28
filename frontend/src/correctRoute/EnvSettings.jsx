@@ -3,10 +3,11 @@ import ownStyles from "./EnvSettings.module.css";
 import CalendarPicker from "../components/CalendarPicker";
 import ClockPicker from "../components/ClockPicker";
 import TimeInput from "./TimeInput";
+import RouteList from "./RouteList";
 import { TARGETS, toDate } from "./waypoints";
 
 // lastSec: 通過点エリアの最後の通過時間（秒）。記録終了時間は記録開始時間にこれを足した時刻で、入力はできない
-export default function EnvSettings({ settings, lastSec, onChange, onRecord, recordDisabled }) {
+export default function EnvSettings({ settings, lastSec, onChange, onRecord, recordDisabled, onLoad }) {
   const { title, start, target, memo, intervalSec } = settings;
   const end = new Date(toDate(start).getTime() + lastSec * 1000);
   const updateStart = (fields) => onChange({ start: { ...start, ...fields } });
@@ -66,6 +67,8 @@ export default function EnvSettings({ settings, lastSec, onChange, onRecord, rec
           記録
         </button>
       </div>
+
+      <RouteList onSelect={onLoad} />
     </div>
   );
 }
