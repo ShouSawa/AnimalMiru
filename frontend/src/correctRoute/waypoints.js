@@ -1,19 +1,5 @@
 export const TARGETS = ["人", "シカ", "サル", "イノシシ"];
 
-// 設定の開始日時 { year, month, day, hour, minute, second } を Date にする
-export const toDate = ({ year, month, day, hour, minute, second }) =>
-  new Date(year, month - 1, day, hour, minute, second);
-
-// toDate の逆。Date を設定の開始日時の形にする
-export const fromDate = (date) => ({
-  year: date.getFullYear(),
-  month: date.getMonth() + 1,
-  day: date.getDate(),
-  hour: date.getHours(),
-  minute: date.getMinutes(),
-  second: date.getSeconds(),
-});
-
 const RAINBOW_STEPS = 30;
 
 // 通過順（0始まり）に対応する虹色。30段階で一周し、31番目からは最初の色に戻る

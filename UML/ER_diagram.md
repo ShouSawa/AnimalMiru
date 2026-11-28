@@ -116,8 +116,6 @@ erDiagram
   ground_truth_route {
     int route_id PK "正解経路の番号(自動採番)"
     text title "タイトル"
-    timestamptz start_time "記録開始時間"
-    timestamptz end_time "記録終了時間"
     text target "実験対象(人,シカ,サル,イノシシ)"
     text memo "メモ"
     int interval_sec "セル通過間隔[s]"

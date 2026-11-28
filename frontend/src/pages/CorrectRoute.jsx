@@ -3,7 +3,7 @@ import styles from "./CorrectRoute.module.css";
 import EnvSettings from "../correctRoute/EnvSettings";
 import RouteField from "../correctRoute/RouteField";
 import WaypointPanel from "../correctRoute/WaypointPanel";
-import { TARGETS, fromDate, toDate } from "../correctRoute/waypoints";
+import { TARGETS } from "../correctRoute/waypoints";
 import { postRoute } from "../correctRoute/routeApi";
 
 const DEFAULT_INTERVAL_SEC = 4;
@@ -11,7 +11,6 @@ const DEFAULT_INTERVAL_SEC = 4;
 function initialSettings() {
   return {
     title: "",
-    start: fromDate(new Date()),
     target: TARGETS[0],
     memo: "",
     intervalSec: DEFAULT_INTERVAL_SEC,
@@ -30,7 +29,6 @@ export default function CorrectRoute() {
     try {
       const { route_id, overwritten } = await postRoute({
         title: settings.title,
-        start_time: toDate(settings.start).getTime() / 1000,
         target: settings.target,
         memo: settings.memo,
         interval_sec: settings.intervalSec,
@@ -48,7 +46,6 @@ export default function CorrectRoute() {
   const loadRoute = (route) => {
     setSettings({
       title: route.title,
-      start: fromDate(new Date(route.start_time * 1000)),
       target: route.target,
       memo: route.memo,
       intervalSec: route.interval_sec,
@@ -83,7 +80,6 @@ export default function CorrectRoute() {
 
       <EnvSettings
         settings={settings}
-        lastSec={points.length ? points[points.length - 1].sec : 0}
         onChange={(fields) => setSettings((prev) => ({ ...prev, ...fields }))}
         onRecord={record}
         recordDisabled={saving || !settings.title.trim() || !points.length}

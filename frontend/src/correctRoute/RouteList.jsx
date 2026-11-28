@@ -54,9 +54,7 @@ export default function RouteList({ onSelect }) {
             <li key={route.route_id} className={styles.row}>
               <button type="button" className={styles.item} onClick={() => select(route)}>
                 {route.title}
-                <span className={styles.detail}>
-                  {new Date(route.start_time * 1000).toLocaleString("ja-JP")} {route.target}
-                </span>
+                <span className={styles.detail}>{route.target}</span>
               </button>
               <button type="button" className={styles.remove} onClick={() => remove(route)}>
                 ✕
